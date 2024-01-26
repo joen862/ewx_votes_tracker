@@ -1,0 +1,24 @@
+{
+  "name": "ewx",
+  "version": "1.0.0",
+  "description": "EWX Worker Node Dashboard",
+  "main": "src/index.js",
+  "scripts": {
+    "start": "parcel src/index.html",
+    "build": "parcel build src/index.html"
+  },
+  "keywords": [],
+  "author": "Jeroen",
+  "license": "ISC",
+  "dependencies": {
+    "@polkadot/api": "^10.11.2",
+    "@polkadot/util": "^12.6.2",
+    "blakejs": "^1.2.1"
+  },
+  "devDependencies": {
+    "buffer": "^6.0.3",
+    "parcel": "^2.11.0",
+    "process": "^0.11.10",
+    "util": "^0.12.5"
+  }
+}

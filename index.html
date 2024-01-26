@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Polkadot Votes Tracker</title>
+</head>
+<body>
+<div id="output"></div>
+<script type="module">
+    import { ApiPromise, WsProvider } from 'https://cdn.jsdelivr.net/npm/@polkadot/api-provider@0.30.45/index.min.js';
+
+    async function main() {
+        const wsProvider = new WsProvider('wss://public-rpc.mainnet.energywebx.com');
+        const api = await ApiPromise.create({ provider: wsProvider });
+        const result = await api.query.workerNodePallet.activeRewardPeriodInfo();
+
+        document.getElementById('output').innerHTML = `Index: ${result.index}, First Block: ${result.firstBlock}, Length: ${result.length}`;
+    }
+
+    main().catch(error => {
+        console.error(error);
+        document.getElementById('output').innerHTML = 'Error: ' + error.message;
+    });
+</script>
+</body>
+</html>
