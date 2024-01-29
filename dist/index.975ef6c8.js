@@ -700,6 +700,15 @@ async function updateTableWithSubmissions(api, submissions, inventoryMap, remain
         totalAccounts += 1;
     }
     document.getElementById("totalAccounts").textContent = `Total Accounts: ${totalAccounts}`;
+    $("#votesTable").DataTable({
+        paging: false,
+        order: [
+            [
+                4,
+                "desc"
+            ]
+        ]
+    });
 }
 function displayCurrentRewardPeriod(rewardPeriod) {
     const rewardPeriodDetailsElem = document.getElementById("rewardPeriodDetails");

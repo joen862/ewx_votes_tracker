@@ -159,6 +159,11 @@ async function updateTableWithSubmissions(api, submissions, inventoryMap, remain
     }
 
     document.getElementById('totalAccounts').textContent = `Total Accounts: ${totalAccounts}`;
+
+    $('#votesTable').DataTable({
+        paging:false,
+        order:[[4,'desc']],
+    });
 }
 
 
