@@ -91,10 +91,10 @@ async function getNumberOfSubmissions(api, activeRewardPeriodIndex, account = nu
 
     if (account) {
         // Als account wordt meegegeven, gebruik deze in de query
-        submissions = await api.query.workerNodePallet.numberOfSubmissions('smartflow.beta', activeRewardPeriodIndex, account);
+        submissions = await api.query.workerNodePallet.numberOfSubmissions('smartflow.y24q2', activeRewardPeriodIndex, account);
     } else {
         // Als geen account wordt meegegeven, gebruik de .entries() methode
-        submissions = await api.query.workerNodePallet.numberOfSubmissions.entries('smartflow.beta', activeRewardPeriodIndex);
+        submissions = await api.query.workerNodePallet.numberOfSubmissions.entries('smartflow.y24q2', activeRewardPeriodIndex);
     }
 
     //console.log(JSON.stringify(submissions, null, 4));
