@@ -675,7 +675,7 @@ async function updateTableWithSubmissions(api, submissions, inventoryMap, remain
         const accountId = key.args[2].toString(); // Assuming this is the account
         const currentVotes = parseInt(value.toString());
         const maxVotes = 96;
-        const threshold = 1;
+        const threshold = 60;
         const operatorInfo = inventoryMap.get(accountId);
         const row = document.createElement("tr");
         const nameCell = document.createElement("td");

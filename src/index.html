@@ -5,53 +5,128 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>EWX SmartFlow Votes Tracker</title>
     <link rel="icon" href="https://assets-global.website-files.com/654cae9c441841dbbab4aa94/657861478fb8c6272434f336_webclip.png" type="image/png" sizes="16x16">
-
-    <!-- JS libraries -->
     <script type="text/javascript" src="https://ajax.googleapis.com/ajax/libs/jquery/3.6.1/jquery.min.js"></script>
     <script type="text/javascript" src="https://cdn.datatables.net/1.13.1/js/jquery.dataTables.min.js"></script>
     <script type="text/javascript" src="https://www.gstatic.com/charts/loader.js"></script>
 
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Open+Sans:ital,wdth,wght@0,75..100,300..800;1,75..100,300..800&display=swap" rel="stylesheet">
+
+
     <style>
-        table, th, td {
-            border: 1px solid black;
+        body {
+            font-family: 'Open Sans', sans-serif;
+            font-size: 16px;
+            line-height: 1.6;
+            margin: 20px;
+            color: #c7c7c7; /* Light grey text for better visibility on dark backgrounds */
+            background-color: #121212; /* Dark background */
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        h1 {
+            border-bottom:1px solid #575759;
+            font-weight: 300;
+            margin: 1rem 0 0 0;
+            padding: 0;
+        }
+
+        h2 {
+            font-weight: 300;
+            margin: 0;
+            padding: 0;
+            margin: 0 0 1rem 0;
+        }
+
+        div.dashboard_title h2, div.dashboard_title h1 {
+            color: #A0A0A3;
+        }
+
+        div.dashboard_title h2 b, div.dashboard_title h1 b {
+            color: #E0E0E2;
+        }
+
+        table {
+            width: 100%;
             border-collapse: collapse;
+            box-shadow: 0 2px 3px rgba(0, 0, 0, 0.3); /* Darker shadow for depth */
+            background-color: #1e1e1e; /* Dark background for the table */
+            margin-top: 20px;
         }
         th, td {
-            padding: 5px;
+            padding: 10px;
             text-align: left;
+            border-bottom: 1px solid #333; /* Darker lines for separation */
+            color: #ddd; /* Lighter text color for readability */
+        }
+        th {
+            background-color: #2c2f33; /* Darker header background */
+        }
+        tr:hover {
+            background-color: #383c41; /* Slightly lighter row for hover effect */
+        }
+        #locationChart {
+            margin-top: 20px;
+            width: 100%;
+            max-width: 900px;
+            height: 500px;
+            background-color: #242424; /* Dark background for consistency */
+        }
+        @media (max-width: 768px) {
+            body {
+                margin: 10px;
+            }
+            #locationChart {
+                height: 300px;
+            }
         }
     </style>
 
-
 </head>
 <body>
+<div class="container">
+    <h1><b>EWX</b> Dashboard</h1>
+    <h2><b>SmartFlow</b> Worker Nodes</h2>
 
-<h2>SmartFlow Votes Tracker</h2>
+    <div id="rewardPeriodInfo">
+        <p id="rewardPeriodDetails">Loading...</p>
+    </div>
 
-<div id="rewardPeriodInfo">
-    <p id="rewardPeriodDetails">Loading...</p>
+    <p id="totalAccounts">Total Accounts: 0</p>
+
+    <table id="votesTable">
+        <thead>
+        <tr>
+            <th>Name</th>
+            <th>Location</th>
+            <th>Account</th>
+            <th>Votes</th>
+            <th style="width:200px;">Progress</th>
+        </tr>
+        </thead>
+        <tbody id="tableBody">
+        <!-- Data rows will go here -->
+        </tbody>
+    </table>
+
+    <div id="locationChart"></div>
+
+    <script type="module" src="index.js"></script>
+
+    <p>Progress bar explained:</p>
+    <ul>
+        <li>Voting Threshold is set to 63 votes (65% of 96 votes)</li>
+        <li>Green: Account has reached the voting threshold</li>
+        <li>Yellow: Account is able to reach the voting threshold</li>
+        <li>Red: Account is too far behind to reach voting threshold</li>
+    </ul>
+
+    <p>Statement from team: It would be prudent to maintain a minimum of 65%. Currently, the voting threshold is lower, but it will be incrementally raised as stability improves. We will not make further announcements on this matter, so to ensure you do not miss out on epoch rewards, adhere to having 65% of the votes!</p>
 </div>
-
-<p id="totalAccounts">Total Accounts: 0</p>
-
-<table id="votesTable">
-    <thead>
-    <tr>
-        <th>Name</th>
-        <th>Location</th>
-        <th>Account</th>
-        <th>Votes</th>
-        <th style="width:200px;">Progress</th>
-    </tr>
-    </thead>
-    <tbody id="tableBody">
-    <!-- Data rows will go here -->
-    </tbody>
-</table>
-
-<div id="locationChart" style="width: 900px; height: 500px;"></div>
-
-<script type="module" src="index.js"></script>
 
 </body>
 </html>
