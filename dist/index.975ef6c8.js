@@ -602,6 +602,14 @@ async function main() {
     // Update the HTML table with the submissions data
     const remainingTimeInSeconds = calculateRemainingTimeInSeconds(activeRewardPeriod);
     updateTableWithSubmissions(api, numberOfSubmissions, operatorInventory, remainingTimeInSeconds);
+    document.getElementById("toggleAccountColumn").addEventListener("change", function() {
+        // Get all account-column elements
+        const accountColumns = document.querySelectorAll(".account-column");
+        // Toggle the display style
+        accountColumns.forEach((column)=>{
+            column.style.display = this.checked ? "" : "none";
+        });
+    });
 }
 async function getChainInfo(api) {
     // Retrieve the chain & node information via rpc calls
@@ -664,10 +672,17 @@ async function updateTableWithSubmissions(api, submissions, inventoryMap, remain
         console.error("Expected submissions to be an array, but received:", submissions);
         return; // Exit the function if submissions is not an array
     }
-    // Sort submissions by votes in descending order
+    // Sort submissions by votes in descending order and then by name in ascending order
     const sortedSubmissions = submissions.sort((a, b)=>{
         const votesA = parseInt(a[1].toString());
         const votesB = parseInt(b[1].toString());
+        // If votes are equal, sort by name
+        if (votesA === votesB) {
+            const nameA = inventoryMap.get(a[0].args[2].toString()).friendlyName.toLowerCase();
+            const nameB = inventoryMap.get(b[0].args[2].toString()).friendlyName.toLowerCase();
+            return nameA.localeCompare(nameB);
+        }
+        // Otherwise, sort by votes
         return votesB - votesA; // For descending order
     });
     let totalAccounts = 0;
@@ -675,13 +690,18 @@ async function updateTableWithSubmissions(api, submissions, inventoryMap, remain
         const accountId = key.args[2].toString(); // Assuming this is the account
         const currentVotes = parseInt(value.toString());
         const maxVotes = 96;
-        const threshold = 60;
+        const threshold = 63;
         const operatorInfo = inventoryMap.get(accountId);
         const row = document.createElement("tr");
         const nameCell = document.createElement("td");
+        nameCell.classList.add("name-column");
         const locationCell = document.createElement("td");
+        locationCell.classList.add("location-column");
         const accountCell = document.createElement("td");
+        accountCell.classList.add("account-column");
+        accountCell.style.display = "none";
         const votesCell = document.createElement("td");
+        votesCell.classList.add("votes-column");
         nameCell.textContent = operatorInfo ? operatorInfo.friendlyName : "Unknown";
         locationCell.textContent = operatorInfo ? operatorInfo.legalLocation : "Unknown";
         accountCell.textContent = accountId;
@@ -692,6 +712,7 @@ async function updateTableWithSubmissions(api, submissions, inventoryMap, remain
         row.appendChild(votesCell);
         // Add progress bar cell
         const progressCell = document.createElement("td");
+        progressCell.classList.add("progress-column");
         progressCell.innerHTML = '<div id="progressBar_' + accountId + '" style="width: 100%; height: 20px;"></div>';
         row.appendChild(progressCell);
         tableBody.appendChild(row);
@@ -784,7 +805,7 @@ function drawLocationChart(locationCounts) {
         chart.draw(data, options);
     }
 }
-function drawProgressBar(accountId, currentVotes, maxVotes = 96, threshold = 60, remainingTime) {
+function drawProgressBar2(accountId, currentVotes, maxVotes = 96, threshold = 63, remainingTime) {
     google.charts.load("current", {
         "packages": [
             "corechart"
@@ -827,6 +848,21 @@ function drawProgressBar(accountId, currentVotes, maxVotes = 96, threshold = 60,
         const chart = new google.visualization.BarChart(document.getElementById("progressBar_" + accountId));
         chart.draw(data, options);
     }
+}
+function drawProgressBar(accountId, currentVotes, maxVotes = 96, threshold = 63, remainingTime) {
+    // Convert currentVotes to a number to ensure accurate calculations
+    const votes = Number(currentVotes);
+    // Calculate width percentage
+    let widthPercentage = Math.min(votes / maxVotes * 100, 100); // Ensure it does not exceed 100%
+    // Determine the progress bar color
+    let color = "#FF1744"; // Default to red
+    if (votes >= threshold) color = "#00E676"; // Green if votes are above the threshold
+    else if (canReachThreshold(votes, threshold, remainingTime)) color = "#FFA726"; // Yellow if it's possible to reach the threshold within the remaining time
+    // Construct the progress bar HTML with the calculated width and color
+    const progressBarHtml = `<div style="width: ${widthPercentage}%; height: 20px; background-color: ${color};"></div>`;
+    // Find the progress bar container by ID and update its HTML
+    const progressBarContainer = document.getElementById("progressBar_" + accountId);
+    if (progressBarContainer) progressBarContainer.innerHTML = progressBarHtml;
 }
 function canReachThreshold(currentVotes, threshold, remainingTime) {
     const secondsPerVote = 900; // 15 minutes per vote in seconds

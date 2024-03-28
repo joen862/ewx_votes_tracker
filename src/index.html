@@ -76,6 +76,43 @@
             height: 500px;
             background-color: #242424; /* Dark background for consistency */
         }
+
+        #votesTable td {
+            white-space: nowrap;
+            overflow: hidden;
+        }
+
+
+
+        #votesTable th.name-column,
+        #votesTable td.name-column {
+            width: 200px !important;
+            max-width: 200px !important;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        #votesTable th.location-column,
+        #votesTable td.location-column {
+            width: 200px !important;
+            max-width: 200px !important;
+        }
+
+        #votesTable th.votes-column,
+        #votesTable td.votes-column {
+            width: 50px !important;
+        }
+
+        #votesTable th.progress-column,
+        #votesTable td.progress-column {
+            /* No width specified to allow this column to fill the rest */
+            width: auto !important;
+        }
+
+
+
+
         @media (max-width: 768px) {
             body {
                 margin: 10px;
@@ -98,14 +135,18 @@
 
     <p id="totalAccounts">Total Accounts: 0</p>
 
+    <label>
+        <input type="checkbox" id="toggleAccountColumn"> Show Account Column
+    </label>
+
     <table id="votesTable">
         <thead>
         <tr>
-            <th>Name</th>
-            <th>Location</th>
-            <th>Account</th>
-            <th>Votes</th>
-            <th style="width:200px;">Progress</th>
+            <th class="name-column">Name</th>
+            <th class="location-column">Location</th>
+            <th class="account-column" style="display: none;">Account</th>
+            <th class="votes-column">Votes</th>
+            <th class="progress-column">Progress</th>
         </tr>
         </thead>
         <tbody id="tableBody">
