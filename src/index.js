@@ -149,6 +149,9 @@ async function updateTableWithSubmissions(api, submissions, inventoryMap, remain
 
         const row = document.createElement('tr');
 
+        const votesCell = document.createElement('td');
+        votesCell.classList.add('votes-column');
+
         const nameCell = document.createElement('td');
         nameCell.classList.add('name-column');
 
@@ -159,8 +162,7 @@ async function updateTableWithSubmissions(api, submissions, inventoryMap, remain
         accountCell.classList.add('account-column');
         accountCell.style.display = 'none';
 
-        const votesCell = document.createElement('td');
-        votesCell.classList.add('votes-column');
+
 
 
         nameCell.textContent = operatorInfo ? operatorInfo.friendlyName : 'Unknown';
@@ -168,10 +170,11 @@ async function updateTableWithSubmissions(api, submissions, inventoryMap, remain
         accountCell.textContent = accountId;
         votesCell.textContent = value.toString();
 
+        row.appendChild(votesCell);
         row.appendChild(nameCell);
         row.appendChild(locationCell);
         row.appendChild(accountCell);
-        row.appendChild(votesCell);
+
 
         // Add progress bar cell
         const progressCell = document.createElement('td');
