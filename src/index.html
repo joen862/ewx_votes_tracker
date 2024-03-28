@@ -7,6 +7,7 @@
     <link rel="icon" href="https://assets-global.website-files.com/654cae9c441841dbbab4aa94/657861478fb8c6272434f336_webclip.png" type="image/png" sizes="16x16">
     <script type="text/javascript" src="https://ajax.googleapis.com/ajax/libs/jquery/3.6.1/jquery.min.js"></script>
     <script type="text/javascript" src="https://cdn.datatables.net/1.13.1/js/jquery.dataTables.min.js"></script>
+    <script type="text/javascript" src="https://maps.googleapis.com/maps/api/js?key=AIzaSyDFw4E4RUZzdnCapBYY9TdgFv4KSAuHh8U&callback=initMap" async defer></script>
     <script type="text/javascript" src="https://www.gstatic.com/charts/loader.js"></script>
 
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -58,7 +59,7 @@
             margin-top: 20px;
         }
         th, td {
-            padding: 10px;
+            padding: 5px;
             text-align: left;
             border-bottom: 1px solid #333; /* Darker lines for separation */
             color: #ddd; /* Lighter text color for readability */
@@ -82,8 +83,6 @@
             overflow: hidden;
         }
 
-
-
         #votesTable th.name-column,
         #votesTable td.name-column {
             width: 200px !important;
@@ -101,16 +100,26 @@
 
         #votesTable th.votes-column,
         #votesTable td.votes-column {
-            width: 50px !important;
+            width: 30px !important;
+            text-align: center;
         }
 
         #votesTable th.progress-column,
         #votesTable td.progress-column {
-            /* No width specified to allow this column to fill the rest */
-            width: auto !important;
+            width: 30px !important;
+            text-align: center;
         }
 
+        /* Targeting the tooltip text */
+        .google-visualization-tooltip-item-list li, .google-visualization-tooltip-item-list li span {
+            color: #FFF !important; /* Change to your desired text color */
+        }
 
+        /* Attempting to target the tooltip background */
+        .google-visualization-tooltip {
+            background-color: #333 !important; /* Change to your desired background color */
+            border: 1px solid #777 !important; /* Optional: Adjust the border color */
+        }
 
 
         @media (max-width: 768px) {
@@ -142,11 +151,11 @@
     <table id="votesTable">
         <thead>
         <tr>
+            <th class="progress-column">Status</th>
             <th class="votes-column">Votes</th>
             <th class="name-column">Name</th>
             <th class="location-column">Location</th>
             <th class="account-column" style="display: none;">Account</th>
-            <th class="progress-column">Progress</th>
         </tr>
         </thead>
         <tbody id="tableBody">
@@ -154,11 +163,11 @@
         </tbody>
     </table>
 
-    <div id="locationChart"></div>
+    <div id="locationChart" style="width: 900px; height: 500px;"></div>
 
     <script type="module" src="index.js"></script>
 
-    <p>Progress bar explained:</p>
+    <p>Status explained:</p>
     <ul>
         <li>Voting Threshold is set to 63 votes (65% of 96 votes)</li>
         <li>Green: Account has reached the voting threshold</li>

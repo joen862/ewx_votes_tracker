@@ -610,6 +610,66 @@ async function main() {
             column.style.display = this.checked ? "" : "none";
         });
     });
+    google.charts.load("current", {
+        "packages": [
+            "geochart"
+        ],
+        "mapsApiKey": "AIzaSyDFw4E4RUZzdnCapBYY9TdgFv4KSAuHh8U"
+    });
+    google.charts.setOnLoadCallback(drawRegionsMap);
+    drawRegionsMap(locationCounts);
+}
+function drawRegionsMap(locationCounts) {
+    google.charts.load("current", {
+        "packages": [
+            "geochart"
+        ],
+        "mapsApiKey": "AIzaSyDFw4E4RUZzdnCapBYY9TdgFv4KSAuHh8U" // Use your Google Maps API key
+    });
+    google.charts.setOnLoadCallback(function() {
+        drawChart(locationCounts);
+    });
+    function drawChart(locationCounts) {
+        const data = new google.visualization.DataTable();
+        data.addColumn("string", "Country");
+        data.addColumn("number", "Accounts");
+        const sortedLocations = Array.from(locationCounts.entries()).sort((a, b)=>b[1] - a[1]);
+        sortedLocations.forEach(([location, count])=>{
+            data.addRow([
+                location,
+                count
+            ]);
+        });
+        const options = {
+            backgroundColor: {
+                fill: "#121212"
+            },
+            datalessRegionColor: "#303030",
+            colorAxis: {
+                // Adding intermediate colors for a smoother or more distinct gradient
+                colors: [
+                    "#e0e0e0",
+                    "#ba68c8",
+                    "#9c27b0",
+                    "#7b1fa2",
+                    "#6a1b9a",
+                    "#4a148c"
+                ]
+            },
+            legend: {
+                textStyle: {
+                    color: "#333"
+                }
+            },
+            tooltip: {
+                textStyle: {
+                    color: "#333"
+                }
+            } // White text for tooltips
+        };
+        const chart = new google.visualization.GeoChart(document.getElementById("locationChart"));
+        chart.draw(data, options);
+    }
 }
 async function getChainInfo(api) {
     // Retrieve the chain & node information via rpc calls
@@ -693,6 +753,13 @@ async function updateTableWithSubmissions(api, submissions, inventoryMap, remain
         const threshold = 63;
         const operatorInfo = inventoryMap.get(accountId);
         const row = document.createElement("tr");
+        // Create the progress circle cell
+        const statusCell = document.createElement("td");
+        statusCell.classList.add("progress-column");
+        const statusColor = getStatusColor(currentVotes, threshold, remainingTimeInSeconds);
+        statusCell.innerHTML = `<svg height="20" width="20">
+                                <circle cx="10" cy="10" r="10" fill="${statusColor}" />
+                            </svg>`;
         const votesCell = document.createElement("td");
         votesCell.classList.add("votes-column");
         const nameCell = document.createElement("td");
@@ -706,15 +773,16 @@ async function updateTableWithSubmissions(api, submissions, inventoryMap, remain
         locationCell.textContent = operatorInfo ? operatorInfo.legalLocation : "Unknown";
         accountCell.textContent = accountId;
         votesCell.textContent = value.toString();
+        row.appendChild(statusCell);
         row.appendChild(votesCell);
         row.appendChild(nameCell);
         row.appendChild(locationCell);
         row.appendChild(accountCell);
         // Add progress bar cell
-        const progressCell = document.createElement("td");
-        progressCell.classList.add("progress-column");
-        progressCell.innerHTML = '<div id="progressBar_' + accountId + '" style="width: 100%; height: 20px;"></div>';
-        row.appendChild(progressCell);
+        //const progressCell = document.createElement('td');
+        //progressCell.classList.add('progress-column');
+        //progressCell.innerHTML = '<div id="progressBar_' + accountId + '" style="width: 100%; height: 20px;"></div>';
+        //row.appendChild(progressCell);
         tableBody.appendChild(row);
         // Call function to draw the progress bar
         drawProgressBar(accountId, currentVotes, maxVotes, threshold, remainingTimeInSeconds);
@@ -725,11 +793,16 @@ async function updateTableWithSubmissions(api, submissions, inventoryMap, remain
         paging: false,
         order: [
             [
-                4,
+                1,
                 "desc"
             ]
         ]
     });
+}
+function getStatusColor(currentVotes, threshold, remainingTime) {
+    if (currentVotes >= threshold) return "#00E676"; // Green
+    else if (canReachThreshold(currentVotes, threshold, remainingTime)) return "#FFA726"; // Yellow
+    else return "#FF1744"; // Red
 }
 function displayCurrentRewardPeriod(rewardPeriod) {
     const rewardPeriodDetailsElem = document.getElementById("rewardPeriodDetails");
@@ -805,50 +878,6 @@ function drawLocationChart(locationCounts) {
         chart.draw(data, options);
     }
 }
-function drawProgressBar2(accountId, currentVotes, maxVotes = 96, threshold = 63, remainingTime) {
-    google.charts.load("current", {
-        "packages": [
-            "corechart"
-        ]
-    });
-    google.charts.setOnLoadCallback(function() {
-        drawChart(accountId, currentVotes, maxVotes, threshold, remainingTime);
-    });
-    function drawChart(accountId, currentVotes, maxVotes, threshold, remainingTime) {
-        const data = new google.visualization.DataTable();
-        data.addColumn("string", "Label");
-        data.addColumn("number", "Votes");
-        data.addRows([
-            [
-                "",
-                currentVotes
-            ] // Empty string for label
-        ]);
-        let color;
-        if (currentVotes >= threshold) color = "green"; // Above threshold
-        else if (canReachThreshold(currentVotes, threshold, remainingTime)) color = "yellow"; // Can potentially reach threshold
-        else color = "red"; // Cannot reach threshold
-        const options = {
-            title: "Votes Progress",
-            bar: {
-                groupWidth: "95%"
-            },
-            legend: {
-                position: "none"
-            },
-            hAxis: {
-                minValue: 0,
-                maxValue: maxVotes,
-                textPosition: "none" // Hide axis labels
-            },
-            colors: [
-                color
-            ]
-        };
-        const chart = new google.visualization.BarChart(document.getElementById("progressBar_" + accountId));
-        chart.draw(data, options);
-    }
-}
 function drawProgressBar(accountId, currentVotes, maxVotes = 96, threshold = 63, remainingTime) {
     // Convert currentVotes to a number to ensure accurate calculations
     const votes = Number(currentVotes);
@@ -878,29 +907,6 @@ function calculateRemainingTimeInSeconds(activeRewardPeriod) {
     // Calculate remaining time in seconds
     const remainingTimeInSeconds = remainingBlocks / blocksPerSecond;
     return remainingTimeInSeconds;
-}
-function aggregateVotes(submissions) {
-    const voteRanges = {};
-    const maxVotes = 100; // Set maximum votes if needed
-    const increment = 5;
-    // Initialize voteRanges with increments of 5
-    for(let i = 0; i <= maxVotes; i += increment){
-        const rangeKey = `${i}-${i + increment - 1}`;
-        voteRanges[rangeKey] = 0;
-    }
-    submissions.forEach(([key, value])=>{
-        const votes = parseInt(value.toString());
-        // Determine the range for the current number of votes
-        const rangeIndex = Math.floor(votes / increment);
-        const lowerBound = rangeIndex * increment;
-        const upperBound = lowerBound + increment - 1;
-        const rangeKey = `${lowerBound}-${upperBound}`;
-        // Increment the count for the range
-        if (voteRanges.hasOwnProperty(rangeKey)) voteRanges[rangeKey]++;
-        else // Handle votes that exceed the maximum defined range
-        voteRanges[`${maxVotes}+`] = (voteRanges[`${maxVotes}+`] || 0) + 1;
-    });
-    return voteRanges;
 }
 main().catch(console.error);
 
