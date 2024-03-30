@@ -13,9 +13,17 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Open+Sans:ital,wdth,wght@0,75..100,300..800;1,75..100,300..800&display=swap" rel="stylesheet">
-
+    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" rel="stylesheet" />
 
     <style>
+        .material-symbols-outlined {
+            font-variation-settings:
+                    'FILL' 0,
+                    'wght' 400,
+                    'GRAD' 0,
+                    'opsz' 24
+        }
+
         body {
             font-family: 'Open Sans', sans-serif;
             font-size: 16px;
@@ -110,18 +118,6 @@
             text-align: center;
         }
 
-        /* Targeting the tooltip text */
-        .google-visualization-tooltip-item-list li, .google-visualization-tooltip-item-list li span {
-            color: #FFF !important; /* Change to your desired text color */
-        }
-
-        /* Attempting to target the tooltip background */
-        .google-visualization-tooltip {
-            background-color: #333 !important; /* Change to your desired background color */
-            border: 1px solid #777 !important; /* Optional: Adjust the border color */
-        }
-
-
         @media (max-width: 768px) {
             body {
                 margin: 10px;
@@ -130,16 +126,151 @@
                 height: 300px;
             }
         }
+
+        .info-donations-container {
+            display: flex;
+            flex-wrap: wrap; /* Allow items to wrap onto the next line on smaller screens */
+            justify-content: space-between;
+            margin-bottom: 20px;
+        }
+
+        #rewardPeriodInfo, #donations {
+            flex: 1; /* This makes both divs take up equal space */
+            margin: 0 10px; /* Adds a little space between them */
+            min-width: 0; /* Fixes an issue where flex items don't shrink past content size */
+        }
+
+        /* Mobile view adjustments */
+        @media (max-width: 768px) {
+            .info-donations-container {
+                flex-direction: column; /* Stack the children vertically on small screens */
+            }
+
+            #rewardPeriodInfo, #donations {
+                margin: 10px 0; /* Adjust margin for vertical stacking */
+                width: 100%; /* Make each box take the full container width */
+            }
+
+            #donations .chain p {
+                font-size: 80%;
+            }
+        }
+
+        #donations {
+            background-color: #2c2f33;
+            padding: 20px;
+            border-radius: 5px;
+        }
+
+        #donations h2 {
+            font-size: 120%;
+        }
+
+        #donations p {
+            font-size: 90%;
+            color: #8c8c8c;
+            line-height: 100%;
+        }
+        .chain {
+            margin-bottom:10px;
+        }
+        .chain p {
+            margin:0;
+            padding:0;
+        }
+
+        .chain span {
+            margin-left: 10px;
+            cursor: pointer;
+            font-size: 80%;
+        }
+
+
+
+        /* The Modal (background) */
+        .qr-modal {
+            display: none; /* Hidden by default */
+            position: fixed; /* Stay in place */
+            z-index: 100; /* Sit on top */
+            left: 0;
+            top: 0;
+            width: 100%; /* Full width */
+            height: 100%; /* Full height */
+            overflow: auto; /* Enable scroll if needed */
+            background-color: rgb(0,0,0); /* Fallback color */
+            background-color: rgba(0,0,0,0.4); /* Black w/ opacity */
+        }
+
+        /* Modal Content */
+        .qr-modal-content {
+            position: relative;
+            margin: 10% auto; /* 10% from the top and centered */
+            padding: 20px;
+            width: 80%; /* Could be more or less, depending on screen size */
+            max-width: 400px; /* Maximum width */
+            background-color: #fefefe;
+            border-radius: 5px; /* Optional: Rounded corners */
+        }
+
+        /* The Close Button */
+        .close {
+            color: #aaa;
+            position: absolute;
+            top: 10px;
+            right: 25px;
+            font-size: 28px;
+            font-weight: bold;
+        }
+
+        .close:hover,
+        .close:focus {
+            color: black;
+            text-decoration: none;
+            cursor: pointer;
+        }
+
+        @media (max-width: 768px) {
+            .qr_code {
+                display: none;
+            }
+        }
+
     </style>
 
 </head>
 <body>
 <div class="container">
+
     <h1><b>EWX</b> Dashboard</h1>
     <h2><b>SmartFlow</b> Worker Nodes</h2>
 
-    <div id="rewardPeriodInfo">
-        <p id="rewardPeriodDetails">Loading...</p>
+    <div class="info-donations-container">
+        <div id="rewardPeriodInfo">
+
+            <p id="rewardPeriodDetails">Loading...</p>
+        </div>
+
+        <div id="donations">
+            <h2><b>Your Gift</b> Powers the Energy Transition</h2>
+            <p>Donations are welcome and appreciated. They help to keep this service running and are a way to show your appreciation for the work that goes into maintaining it.</p>
+            <div class="chain">
+                <div class="address">
+                    <b>EWX</b>
+                    <span class="material-symbols-outlined copy-icon" data-address="5D4WvryHkSmFZMrNxLbGT8jtfNiQ5fMFugpvWekafrD7Ums5">content_copy</span>
+                    <span class="material-symbols-outlined qr_code" data-qr="/src/donations_substrate.png">qr_code</span>
+                </div>
+                <p>5D4WvryHkSmFZMrNxLbGT8jtfNiQ5fMFugpvWekafrD7Ums5</p>
+            </div>
+            <div class="chain">
+                <div class="address">
+                    <b>EWC</b>
+                    <span class="material-symbols-outlined copy-icon" data-address="0xF34193DD4F7B51CaFb0A037131cDC9b4197F7B4e">content_copy</span>
+                    <span class="material-symbols-outlined qr_code" data-qr="/src/donations_evm.png">qr_code</span>
+                </div>
+                <p>0xF34193DD4F7B51CaFb0A037131cDC9b4197F7B4e</p>
+            </div>
+        </div>
+
     </div>
 
     <p id="totalAccounts">Total Accounts: 0</p>
@@ -148,24 +279,24 @@
         <input type="checkbox" id="toggleAccountColumn"> Show Account Column
     </label>
 
-    <table id="votesTable">
-        <thead>
-        <tr>
-            <th class="progress-column">Status</th>
-            <th class="votes-column">Votes</th>
-            <th class="name-column">Name</th>
-            <th class="location-column">Location</th>
-            <th class="account-column" style="display: none;">Account</th>
-        </tr>
-        </thead>
-        <tbody id="tableBody">
-        <!-- Data rows will go here -->
-        </tbody>
-    </table>
+    <div class="table-responsive">
+        <table id="votesTable">
+            <thead>
+            <tr>
+                <th class="progress-column">Status</th>
+                <th class="votes-column">Votes</th>
+                <th class="name-column">Name</th>
+                <th class="location-column">Location</th>
+                <th class="account-column" style="display: none;">Account</th>
+            </tr>
+            </thead>
+            <tbody id="tableBody">
+            <!-- Data rows will go here -->
+            </tbody>
+        </table>
+    </div>
 
     <div id="locationChart" style="width: 900px; height: 500px;"></div>
-
-    <script type="module" src="index.js"></script>
 
     <h2>Status explained:</h2>
     <ul>
@@ -176,14 +307,17 @@
     </ul>
     <p>Statement from team: It would be prudent to maintain a minimum of 65%. Currently, the voting threshold is lower, but it will be incrementally raised as stability improves. We will not make further announcements on this matter, so to ensure you do not miss out on epoch rewards, adhere to having 65% of the votes!</p>
 
-    <h2>Donations:</h2>
-    <p>Donations are welcome and appreciated. They help to keep this service running and are a way to show your appreciation for the work that goes into maintaining it.</p>
-    <ul>
-        <li>EWX: 5D4WvryHkSmFZMrNxLbGT8jtfNiQ5fMFugpvWekafrD7Ums5</li>
-        <li>EWC: 0xF34193DD4F7B51CaFb0A037131cDC9b4197F7B4e</li>
-    </ul>
-
 </div>
 
+<!-- QR Code Modal -->
+<div id="qrModal" class="qr-modal">
+    <div class="qr-modal-content">
+        <span class="close">&times;</span>
+        <!-- Ensure the img tag has an id -->
+        <img id="qrImage" alt="QR Code" style="width: 100%; height: auto;">
+    </div>
+</div>
+
+<script type="module" src="index.js"></script>
 </body>
 </html>

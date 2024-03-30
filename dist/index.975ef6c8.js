@@ -580,7 +580,12 @@ function hmrAccept(bundle /*: ParcelRequire */ , id /*: string */ ) {
 
 },{}],"8lqZg":[function(require,module,exports) {
 // Import the required modules using ES6 syntax
+var parcelHelpers = require("@parcel/transformer-js/src/esmodule-helpers.js");
 var _api = require("@polkadot/api");
+var _donationsSubstratePng = require("./donations_substrate.png");
+var _donationsSubstratePngDefault = parcelHelpers.interopDefault(_donationsSubstratePng);
+var _donationsEvmPng = require("./donations_evm.png");
+var _donationsEvmPngDefault = parcelHelpers.interopDefault(_donationsEvmPng);
 async function main() {
     // Initialise the provider to connect to the local node
     const provider = new (0, _api.WsProvider)("wss://public-rpc.mainnet.energywebx.com");
@@ -711,7 +716,7 @@ async function getActiveRewardPeriod(api) {
         }
     };
     // Log the results
-    console.log(`Reward Period Index: ${index} \nFirst Block: ${firstBlock} \nLast Block: ${lastBlock} \nCurrent Block: ${currentBlock} \nProgress: ${progress.toFixed(2)}% \nEstimated Time to End: ${hours} hours, ${minutes} minutes`);
+    console.log(`Reward Period Index: ${index} \nFirst Block: ${firstBlock} \nLast Block: ${lastBlock} \nCurrent Block: ${currentBlock} \nProgress: ${progress.toFixed(2)}% \nEstimated Time to End: \n${hours} hours, ${minutes} minutes`);
     return result;
 }
 async function getNumberOfSubmissions(api, activeRewardPeriodIndex, account = null) {
@@ -813,7 +818,8 @@ function displayCurrentRewardPeriod(rewardPeriod) {
         Last Block: ${rewardPeriod.lastBlock} <br>
         Current Block: ${rewardPeriod.currentBlock} <br>
         Progress: ${rewardPeriod.progress}% <br>
-        Estimated Time to End: ${rewardPeriod.remainingTime.hours} hours, ${rewardPeriod.remainingTime.minutes} minutes (based on 12 seconds per block)
+        Estimated Time to End: <br>
+        ${rewardPeriod.remainingTime.hours} hours, ${rewardPeriod.remainingTime.minutes} minutes (based on 12 seconds per block)
     `;
     // Update the content of the reward period element
     rewardPeriodDetailsElem.innerHTML = rewardPeriodInfo;
@@ -908,9 +914,58 @@ function calculateRemainingTimeInSeconds(activeRewardPeriod) {
     const remainingTimeInSeconds = remainingBlocks / blocksPerSecond;
     return remainingTimeInSeconds;
 }
-main().catch(console.error);
+function copyToClipboard(text) {
+    navigator.clipboard.writeText(text).then(function() {
+        alert("Address copied to clipboard!");
+    }, function(err) {
+        console.error("Could not copy text: ", err);
+    });
+}
+function showQRCode(id) {
+    var qrCode = document.getElementById(id);
+    if (qrCode.style.display === "none") qrCode.style.display = "block";
+    else qrCode.style.display = "none";
+}
+document.addEventListener("DOMContentLoaded", ()=>{
+    // Copy to clipboard functionality
+    const copyIcons = document.querySelectorAll(".material-symbols-outlined.copy-icon");
+    copyIcons.forEach((icon)=>{
+        icon.addEventListener("click", ()=>{
+            const address = icon.getAttribute("data-address");
+            copyToClipboard(address);
+        });
+    });
+    const qrIcons = document.querySelectorAll(".material-symbols-outlined.qr_code");
+    const qrModal = document.getElementById("qrModal");
+    const qrImage = document.getElementById("qrImage");
+    const closeBtn = document.querySelector(".close");
+    // Function to open the modal with the correct image
+    function openQrModal(imagePath) {
+        qrImage.src = imagePath;
+        qrModal.style.display = "block";
+    }
+    // Event listeners for the QR icons
+    qrIcons.forEach((icon)=>{
+        icon.addEventListener("click", function() {
+            // Determine which QR code to display based on the icon clicked
+            const address = this.previousElementSibling.getAttribute("data-address");
+            if (address === "5D4WvryHkSmFZMrNxLbGT8jtfNiQ5fMFugpvWekafrD7Ums5") openQrModal((0, _donationsSubstratePngDefault.default));
+            else if (address === "0xF34193DD4F7B51CaFb0A037131cDC9b4197F7B4e") openQrModal((0, _donationsEvmPngDefault.default));
+        });
+    });
+    // Close the modal when clicking on the (x) button
+    closeBtn.onclick = function() {
+        qrModal.style.display = "none";
+    };
+    // Close the modal when clicking outside of the modal content
+    window.onclick = function(event) {
+        if (event.target == qrModal) qrModal.style.display = "none";
+    };
+    // Call main to initiate data fetching from the chain
+    main().catch(console.error);
+});
 
-},{"@polkadot/api":"gqBQQ"}],"gqBQQ":[function(require,module,exports) {
+},{"@polkadot/api":"gqBQQ","./donations_substrate.png":"1Kz0o","./donations_evm.png":"2MoUV","@parcel/transformer-js/src/esmodule-helpers.js":"gkKU3"}],"gqBQQ":[function(require,module,exports) {
 var parcelHelpers = require("@parcel/transformer-js/src/esmodule-helpers.js");
 parcelHelpers.defineInteropFlag(exports);
 var _detectPackageJs = require("./detectPackage.js");
@@ -59969,6 +60024,47 @@ function toPromiseMethod(method, options) {
     };
 }
 
-},{"rxjs":"lLy7s","@polkadot/util":"3HnHw","@parcel/transformer-js/src/esmodule-helpers.js":"gkKU3"}]},["4rkIz","8lqZg"], "8lqZg", "parcelRequire374a")
+},{"rxjs":"lLy7s","@polkadot/util":"3HnHw","@parcel/transformer-js/src/esmodule-helpers.js":"gkKU3"}],"1Kz0o":[function(require,module,exports) {
+module.exports = require("6018388d86f5baa5").getBundleURL("bLxZJ") + "donations_substrate.5e7a6d74.png" + "?" + Date.now();
+
+},{"6018388d86f5baa5":"lgJ39"}],"lgJ39":[function(require,module,exports) {
+"use strict";
+var bundleURL = {};
+function getBundleURLCached(id) {
+    var value = bundleURL[id];
+    if (!value) {
+        value = getBundleURL();
+        bundleURL[id] = value;
+    }
+    return value;
+}
+function getBundleURL() {
+    try {
+        throw new Error();
+    } catch (err) {
+        var matches = ("" + err.stack).match(/(https?|file|ftp|(chrome|moz|safari-web)-extension):\/\/[^)\n]+/g);
+        if (matches) // The first two stack frames will be this function and getBundleURLCached.
+        // Use the 3rd one, which will be a runtime in the original bundle.
+        return getBaseURL(matches[2]);
+    }
+    return "/";
+}
+function getBaseURL(url) {
+    return ("" + url).replace(/^((?:https?|file|ftp|(chrome|moz|safari-web)-extension):\/\/.+)\/[^/]+$/, "$1") + "/";
+}
+// TODO: Replace uses with `new URL(url).origin` when ie11 is no longer supported.
+function getOrigin(url) {
+    var matches = ("" + url).match(/(https?|file|ftp|(chrome|moz|safari-web)-extension):\/\/[^/]+/);
+    if (!matches) throw new Error("Origin not found");
+    return matches[0];
+}
+exports.getBundleURL = getBundleURLCached;
+exports.getBaseURL = getBaseURL;
+exports.getOrigin = getOrigin;
+
+},{}],"2MoUV":[function(require,module,exports) {
+module.exports = require("b76d759f00f04a16").getBundleURL("bLxZJ") + "donations_evm.c9b0a5ed.png" + "?" + Date.now();
+
+},{"b76d759f00f04a16":"lgJ39"}]},["4rkIz","8lqZg"], "8lqZg", "parcelRequire374a")
 
 //# sourceMappingURL=index.975ef6c8.js.map
