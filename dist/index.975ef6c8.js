@@ -586,6 +586,8 @@ var _donationsSubstratePng = require("./donations_substrate.png");
 var _donationsSubstratePngDefault = parcelHelpers.interopDefault(_donationsSubstratePng);
 var _donationsEvmPng = require("./donations_evm.png");
 var _donationsEvmPngDefault = parcelHelpers.interopDefault(_donationsEvmPng);
+var _dsAddressesJson = require("./ds_addresses.json");
+var _dsAddressesJsonDefault = parcelHelpers.interopDefault(_dsAddressesJson);
 async function main() {
     // Initialise the provider to connect to the local node
     const provider = new (0, _api.WsProvider)("wss://public-rpc.mainnet.energywebx.com");
@@ -595,6 +597,10 @@ async function main() {
     });
     // Retrieve the chain & node information information via rpc calls
     await getChainInfo(api);
+    const allBalances = await fetchAllBalances(api);
+    window.allBalances = allBalances;
+    const allStakes = await fetchAllStakes(api);
+    window.allStakes = allStakes;
     // Retrieve the active reward period information
     const activeRewardPeriod = await getActiveRewardPeriod(api);
     displayCurrentRewardPeriod(activeRewardPeriod);
@@ -608,10 +614,25 @@ async function main() {
     const remainingTimeInSeconds = calculateRemainingTimeInSeconds(activeRewardPeriod);
     updateTableWithSubmissions(api, numberOfSubmissions, operatorInventory, remainingTimeInSeconds);
     document.getElementById("toggleAccountColumn").addEventListener("change", function() {
-        // Get all account-column elements
-        const accountColumns = document.querySelectorAll(".account-column");
-        // Toggle the display style
-        accountColumns.forEach((column)=>{
+        // Select all columns that should be toggled
+        const columns = document.querySelectorAll(".account-column, .stake-column, .balance-column, .ds-column");
+        // Toggle the display style based on the checkbox status
+        columns.forEach((column)=>{
+            column.style.display = this.checked ? "" : "none";
+        });
+    });
+    document.getElementById("toggleFavorites").addEventListener("click", function() {
+        this.classList.toggle("filtered");
+        const isFiltered = this.classList.contains("filtered");
+        localStorage.setItem("favoritesFiltered", isFiltered); // Save the filter state in local storage
+        filterFavorites();
+    });
+    document.getElementById("toggleAccountColumn").addEventListener("change", function() {
+        // Update local storage with the new state of the checkbox
+        localStorage.setItem("showAccountInfo", this.checked);
+        // Existing functionality to toggle visibility of account columns
+        const columns = document.querySelectorAll(".account-column, .stake-column, .balance-column, .ds-column");
+        columns.forEach((column)=>{
             column.style.display = this.checked ? "" : "none";
         });
     });
@@ -728,6 +749,108 @@ async function getNumberOfSubmissions(api, activeRewardPeriodIndex, account = nu
     //console.log(JSON.stringify(submissions, null, 4));
     return submissions;
 }
+async function fetchAllBalances(api) {
+    const balances = new Map();
+    try {
+        // Fetch all account balances at once
+        const result = await api.query.system.account.entries();
+        result.forEach(([key, accountInfo])=>{
+            const address = key.args[0].toString(); // Extracting address from key
+            const free = Number(accountInfo.data.free.toBigInt() / 10n ** 18n);
+            const reserved = Number(accountInfo.data.reserved.toBigInt() / 10n ** 18n);
+            balances.set(address, {
+                free,
+                reserved
+            });
+        });
+        console.log("Fetched ", result.length, " balances successfully.");
+    } catch (error) {
+        console.error("Error fetching all balances:", error);
+    }
+    return balances;
+}
+function getAccountBalance(address) {
+    // Check if address is indeed a string and not an ApiPromise object
+    if (typeof address !== "string") {
+        console.error("Address is not a string:", address);
+        return {
+            freeBalance: 0,
+            reservedBalance: 0,
+            totalBalance: 0
+        }; // Error case handling
+    }
+    const balances = window.allBalances;
+    if (balances && balances.has(address)) {
+        const { free, reserved } = balances.get(address);
+        const totalBalance = free + reserved; // Calculate total balance
+        return {
+            freeBalance: free,
+            reservedBalance: reserved,
+            totalBalance
+        }; // Consistent property names
+    } else {
+        console.warn("No balance found for address:", address);
+        return {
+            freeBalance: 0,
+            reservedBalance: 0,
+            totalBalance: 0
+        }; // Return zero balances if not found
+    }
+}
+async function fetchAllStakes(api) {
+    const stakes = [];
+    try {
+        const result = await api.query.workerNodePallet.solutionGroupStakeRecords.entries("smartflow.y24q2");
+        result.forEach(([key, rawValue])=>{
+            const accountId = key.args[1].toString(); // Extracting accountId from key
+            // Process each group's stake value from the rawValue
+            const stakeEntries = rawValue.toHuman();
+            for (const [startEpoch, stakeHex] of Object.entries(stakeEntries)){
+                const cleanStakeHex = stakeHex.replace(/,/g, ""); // Remove any commas from the string
+                const stakeAmount = BigInt(cleanStakeHex) / BigInt(1e18); // Convert clean hexadecimal to BigInt and normalize
+                stakes.push({
+                    "account": accountId,
+                    "stake": stakeAmount.toString(),
+                    "start_epoch": startEpoch
+                });
+            }
+        });
+    //console.log("Formatted stakes:", stakes);
+    } catch (error) {
+        console.error("Error fetching all stakes:", error);
+    }
+    return stakes;
+}
+function getAccountStake(address) {
+    // Check if address is indeed a string and not an ApiPromise object
+    if (typeof address !== "string") {
+        console.error("Address is not a string:", address);
+        return 0; // Error case handling
+    }
+    const stakes = window.allStakes;
+    const stakeEntry = stakes.find((entry)=>entry.account === address);
+    return stakeEntry ? stakeEntry.stake : "0"; // Return '0' if no stake is found
+}
+function setFavorite(accountId, isFavorite) {
+    let favorites = JSON.parse(localStorage.getItem("favorites") || "{}");
+    if (isFavorite) favorites[accountId] = true;
+    else delete favorites[accountId];
+    localStorage.setItem("favorites", JSON.stringify(favorites));
+    filterFavorites(); // Update the view after changing a favorite status
+}
+function isFavorite(accountId) {
+    let favorites = JSON.parse(localStorage.getItem("favorites") || "{}");
+    return !!favorites[accountId];
+}
+function filterFavorites() {
+    const showOnlyFavorites = document.getElementById("toggleFavorites").classList.contains("filtered");
+    const rows = document.querySelectorAll("#tableBody tr");
+    rows.forEach((row)=>{
+        const accountId = row.getAttribute("data-account-id");
+        if (showOnlyFavorites && !isFavorite(accountId)) row.style.display = "none"; // Hide rows that are not favorites
+        else row.style.display = ""; // Show all rows when not filtering
+    });
+}
 // Function to update the HTML table with submission data
 async function updateTableWithSubmissions(api, submissions, inventoryMap, remainingTimeInSeconds) {
     const tableBody = document.getElementById("tableBody");
@@ -753,46 +876,108 @@ async function updateTableWithSubmissions(api, submissions, inventoryMap, remain
     let totalAccounts = 0;
     for (const [key, value] of sortedSubmissions){
         const accountId = key.args[2].toString(); // Assuming this is the account
+        const shortenedAccountId = `${accountId.slice(0, 5)}...${accountId.slice(-5)}`; // Shorten the address
         const currentVotes = parseInt(value.toString());
         const maxVotes = 96;
         const threshold = 63;
         const operatorInfo = inventoryMap.get(accountId);
         const row = document.createElement("tr");
-        // Create the progress circle cell
+        row.setAttribute("data-account-id", accountId);
+        // STATUS CELL
         const statusCell = document.createElement("td");
         statusCell.classList.add("progress-column");
         const statusColor = getStatusColor(currentVotes, threshold, remainingTimeInSeconds);
         statusCell.innerHTML = `<svg height="20" width="20">
                                 <circle cx="10" cy="10" r="10" fill="${statusColor}" />
                             </svg>`;
+        row.appendChild(statusCell);
+        // VOTES CELL
         const votesCell = document.createElement("td");
         votesCell.classList.add("votes-column");
+        row.appendChild(votesCell);
+        votesCell.textContent = value.toString();
+        // NAME CELL
         const nameCell = document.createElement("td");
         nameCell.classList.add("name-column");
+        row.appendChild(nameCell);
+        nameCell.textContent = operatorInfo ? operatorInfo.friendlyName : "Unknown";
+        // LOCATION CELL
         const locationCell = document.createElement("td");
         locationCell.classList.add("location-column");
+        row.appendChild(locationCell);
+        locationCell.textContent = operatorInfo ? operatorInfo.legalLocation : "Unknown";
+        // ACCOUNT CELL
         const accountCell = document.createElement("td");
         accountCell.classList.add("account-column");
         accountCell.style.display = "none";
-        nameCell.textContent = operatorInfo ? operatorInfo.friendlyName : "Unknown";
-        locationCell.textContent = operatorInfo ? operatorInfo.legalLocation : "Unknown";
-        accountCell.textContent = accountId;
-        votesCell.textContent = value.toString();
-        row.appendChild(statusCell);
-        row.appendChild(votesCell);
-        row.appendChild(nameCell);
-        row.appendChild(locationCell);
+        accountCell.innerHTML = `
+            <span class="material-symbols-outlined copy-icon" data-address="${accountId}" style="cursor: pointer;">content_copy</span>
+            ${shortenedAccountId}
+        `;
         row.appendChild(accountCell);
-        // Add progress bar cell
-        //const progressCell = document.createElement('td');
-        //progressCell.classList.add('progress-column');
-        //progressCell.innerHTML = '<div id="progressBar_' + accountId + '" style="width: 100%; height: 20px;"></div>';
-        //row.appendChild(progressCell);
+        // STAKE CELL
+        const stakeAmount = getAccountStake(accountId); // Get the stake amount
+        const stakeCell = document.createElement("td");
+        stakeCell.classList.add("stake-column");
+        stakeCell.style.display = "none";
+        //stakeCell.textContent = Math.round(stakeAmount.toLocaleString('en-US');
+        stakeCell.textContent = Math.round(stakeAmount).toLocaleString("en-US");
+        row.appendChild(stakeCell);
+        // BALANCE CELL
+        const balanceData = getAccountBalance(accountId); // Now synchronous, no need for 'await'
+        const balanceCell = document.createElement("td");
+        balanceCell.classList.add("balance-column");
+        balanceCell.style.display = "none";
+        balanceCell.textContent = Math.round(balanceData.totalBalance).toLocaleString("en-US");
+        row.appendChild(balanceCell);
+        // DS CELL
+        //const DsAddresses = await fetchDsAddresses();
+        const hasSnap = (0, _dsAddressesJsonDefault.default).includes(accountId);
+        const dsCell = document.createElement("td");
+        dsCell.classList.add("ds-column");
+        if (hasSnap) dsCell.classList.add("active");
+        dsCell.style.display = "none";
+        dsCell.innerHTML = '<span class="material-symbols-outlined small-icon">orthopedics</span>';
+        row.appendChild(dsCell);
+        // FAVORITE CELL
+        const isFav = isFavorite(accountId);
+        const favoriteCell = document.createElement("td");
+        favoriteCell.classList.add("favorites-column");
+        if (isFav) favoriteCell.classList.add("active"); // Add 'active' class when the item is a favorite
+        const favoriteIcon = document.createElement("span");
+        favoriteIcon.classList.add("material-symbols-outlined", "small-icon");
+        favoriteIcon.textContent = "star"; // Always use 'star' icon
+        favoriteIcon.style.cursor = "pointer";
+        favoriteIcon.onclick = ()=>{
+            const currentStatus = isFavorite(accountId);
+            setFavorite(accountId, !currentStatus); // Toggle the favorite status in local storage
+            if (!currentStatus) favoriteCell.classList.add("active"); // Add 'active' class if the item is now a favorite
+            else favoriteCell.classList.remove("active"); // Remove 'active' class if the item is no longer a favorite
+        };
+        favoriteCell.appendChild(favoriteIcon);
+        row.appendChild(favoriteCell);
         tableBody.appendChild(row);
         // Call function to draw the progress bar
         drawProgressBar(accountId, currentVotes, maxVotes, threshold, remainingTimeInSeconds);
+        initClipboardFunctionality();
         totalAccounts += 1;
     }
+    // Check the stored filter state and apply it
+    const shouldFilterFavorites = localStorage.getItem("favoritesFiltered") === "true";
+    if (shouldFilterFavorites) {
+        const toggleButton = document.getElementById("toggleFavorites");
+        toggleButton.classList.add("filtered"); // Set the filtered class to reflect the state
+        filterFavorites(); // Apply the filter based on the saved state
+    }
+    // Check the stored checkbox state and apply it
+    const showAccountInfo = localStorage.getItem("showAccountInfo") === "true"; // Convert to boolean
+    const checkbox = document.getElementById("toggleAccountColumn");
+    checkbox.checked = showAccountInfo;
+    // Set the display of the account-related columns based on the stored state
+    const columns = document.querySelectorAll(".account-column, .stake-column, .balance-column, .ds-column");
+    columns.forEach((column)=>{
+        column.style.display = showAccountInfo ? "" : "none";
+    });
     document.getElementById("totalAccounts").textContent = `Total Accounts: ${totalAccounts}`;
     $("#votesTable").DataTable({
         paging: false,
@@ -914,27 +1099,23 @@ function calculateRemainingTimeInSeconds(activeRewardPeriod) {
     const remainingTimeInSeconds = remainingBlocks / blocksPerSecond;
     return remainingTimeInSeconds;
 }
-function copyToClipboard(text) {
-    navigator.clipboard.writeText(text).then(function() {
-        alert("Address copied to clipboard!");
-    }, function(err) {
-        console.error("Could not copy text: ", err);
-    });
-}
-function showQRCode(id) {
-    var qrCode = document.getElementById(id);
-    if (qrCode.style.display === "none") qrCode.style.display = "block";
-    else qrCode.style.display = "none";
-}
-document.addEventListener("DOMContentLoaded", ()=>{
-    // Copy to clipboard functionality
+function initClipboardFunctionality() {
     const copyIcons = document.querySelectorAll(".material-symbols-outlined.copy-icon");
     copyIcons.forEach((icon)=>{
-        icon.addEventListener("click", ()=>{
-            const address = icon.getAttribute("data-address");
-            copyToClipboard(address);
-        });
+        // Clear existing click events to prevent multiple handlers
+        icon.removeEventListener("click", handleCopy);
+        icon.addEventListener("click", handleCopy);
     });
+}
+function handleCopy() {
+    const address = this.getAttribute("data-address");
+    navigator.clipboard.writeText(address).then(()=>{
+        alert("Address copied to clipboard!");
+    }, (err)=>{
+        console.error("Failed to copy text: ", err);
+    });
+}
+document.addEventListener("DOMContentLoaded", ()=>{
     const qrIcons = document.querySelectorAll(".material-symbols-outlined.qr_code");
     const qrModal = document.getElementById("qrModal");
     const qrImage = document.getElementById("qrImage");
@@ -961,11 +1142,12 @@ document.addEventListener("DOMContentLoaded", ()=>{
     window.onclick = function(event) {
         if (event.target == qrModal) qrModal.style.display = "none";
     };
+    initClipboardFunctionality(); // Initialize clipboard functionality on page load
     // Call main to initiate data fetching from the chain
     main().catch(console.error);
 });
 
-},{"@polkadot/api":"gqBQQ","./donations_substrate.png":"1Kz0o","./donations_evm.png":"2MoUV","@parcel/transformer-js/src/esmodule-helpers.js":"gkKU3"}],"gqBQQ":[function(require,module,exports) {
+},{"@polkadot/api":"gqBQQ","./donations_substrate.png":"1Kz0o","./donations_evm.png":"2MoUV","@parcel/transformer-js/src/esmodule-helpers.js":"gkKU3","./ds_addresses.json":"b5EUs"}],"gqBQQ":[function(require,module,exports) {
 var parcelHelpers = require("@parcel/transformer-js/src/esmodule-helpers.js");
 parcelHelpers.defineInteropFlag(exports);
 var _detectPackageJs = require("./detectPackage.js");
@@ -60065,6 +60247,9 @@ exports.getOrigin = getOrigin;
 },{}],"2MoUV":[function(require,module,exports) {
 module.exports = require("b76d759f00f04a16").getBundleURL("bLxZJ") + "donations_evm.c9b0a5ed.png" + "?" + Date.now();
 
-},{"b76d759f00f04a16":"lgJ39"}]},["4rkIz","8lqZg"], "8lqZg", "parcelRequire374a")
+},{"b76d759f00f04a16":"lgJ39"}],"b5EUs":[function(require,module,exports) {
+module.exports = JSON.parse('["5H6D9PZqEsbGue8yHjyypLsyuqZkYa62sUccCiMpoiQmPoaE","5ELM8nsmeFMAhM6VFvrFohp7Xjo5i4ZqPFF4RuT9j6BHfAvv","5GsfoXDh2yUZDRaFDeTJcjzhF5y2dB2FSX5RjFjgEk7zbPMz","5CksjEhj8b6DSwvck3f6PkPZ9nQucvRZRAdQzT8cd6pCzzaJ","5FC46H65yHuT53gQ6prpAu5RKQEWjmHLT4457vhBFXtFL2y5","5EnAnD728KevtNFAyMPBBw9XJ2EVfm5efyWZFWQ8Z9LTzMqk","5Gq1TVjaXgDPiGd6GFrAt2cJMvPjo5QRQoQyoYN9TXj3PhVX","5E4JvE4YB13mqN3ZJ1UKicDx7zBZGBXz4HitkCP2cmp7RSdd","5DiBFkDFaQqXHDfVNBHmbPeP7GzRq864o7ryyqNKdYGpXbJg","5DWnapxNi7ciFmDUzuRddx6pYHwMjUt2aAM5EBYbgz6H1Z4W","5E7S86bTW9vxEni2M4zbfrZBzGcrb1Gj6gEhVJGykTpLmZ1x","5Fvq6Svxj8GeX62Ugh977UuSMTgNnt98Ryyjgkk4f2v5oLnw","5D5FL1DBrqK6cni1CkFAmQK2V3vs1LpqAy3FtNioqRxWpEK4","5Ccfzt6pRkQrZW15WdaWsPud4knj4E82YjaAQ79SgQec9QRT","5CoWj4U2W9LrucZaDu81ndBDSD8HeT7zxkf5MjTM7TzBZECh","5Gph5eyD1RexpqjEerYtgCtpt2b7fDAQzc7tx5mcVpWaVSkj","5ENZfrmoUESMMpD8NCvxLdRSFBoxRCDVzJBzeFyiV6X2Xy6h","5HQfqv3xHJDN2CMDyRsdrmdrU1bmD4ZvvCsk8TfdqAKVVewd","5EfGcf3HbKSvmHsgCJ1EJp1xNBGebVfC1LdG54CY6mNeYVRx","5Hdt7KrQPqunZ2y17apuGNFdaJCjLUVcjGUBEU7gwSJJaek2","5H6KwJcxXxzEyo7MizUChmA6JBpuFyerRqXyeQF1jpnhyDWA","5EeadBy5Qw5tBqw64dCkRcrvAxagvg7NV23qpMzQNVmvAUBx","5HmEQm2vdMLG5KdzfzJwMQUBSnXwdaEyxg9qnpo7yJDgGsC2","5Ft4bzM4FRPn98TDEXKf12Zfp7ye8vTauEUmjoNQUoSXd5VP","5FRkpvwsrfGWcMUxCLj6GCc6EFRN3yfsvjQgJBQfswTp6uUv","5Df1dST6mceiU3QeBSKcuQx7pr4TUafdh4UBNAGpZ2KzsUun","5CDBABYXT6xmmBFKzuFLnMcY8d9D5vgBs1G25e5ZimpSPsDo","5EvKdaxs73cKmdZhCib2v1kyQ5cnFihAxLaJiHtAigtVZTR7","5DZLGDKDGYupcgvcLwbJSFayQamceYNZTv9Dty2MZRMMAbR1","5Ey2HRaZDCute4rsGEUnNF7FBDUkvnb9ioz1Gp8gZ3Mc2r8b","5HMdXcNxzCgRFyG99NCGXzRtcEFAB4Dz9qQwrs7ov9HLAFS8","5FC3cF3SMxtW57dHKrUvrHhZGknJYcufepp82ngv3DFTJz49","5D4uoAca3NP4C8gXMroV9ZWQqQowtUG8WzRkpdMMz8sV2zk7","5DjpNK9WM6ZCRXW8cs2dvquEsRyNErHEyK5z2z1WU3jgtoJg","5CUgVsmWVjm8JofyHyZ7KE2ggmRnfWhfwvQRwBAxHxgBGBts","5GgtZqZHtoVFpYompq3Q3zwZzGdYC8gAbsR1PWRAdCigovXz","5DsoRowaSDAJk2gRiFMnAwMiPFSYoTzTH6DaiT2q38FappHe","5DtiBSErxK8zJi26SRfyg6oC7g9ktcb2MuoYfwY4SB3uAh5T","5CcBDRrUBfsEhUadenpDrZTHCjRV8gEtBqHkbv7oRgdbCmjc","5HQPtBw5Gv11e9CA4QF5kdLsvkz3sgDsnqbqztcN2YjRFMcL","5CV1jxRde6NJK5C1iHbFiaqmJgyRG9S5F96WvAPgbUzhgfbQ","5HNg8jYy9Z3pR6SeSCGN8XEmNiG9GnH3pwmPs1Y8GUBkGAoz","5HNm6TJQfvPHePvjEgYHeZoKKgRgAntwspRA3nZUHKEfUdXm","5Ekd9FQ4R4ZKKhJ9ztyCKrERx22v7jP9YMnBqkPqfhV9EYhr","5H5r4gMzvuj85JjFHBwosq7QF95jmvCSQvikDF6k1iMB1N7W","5HpWTU8qfUsxVjK95gfahzSawHDT6kSQtDXTmJTe5C1JCE5G","5Hi7TMuK6ZbwLk72KJEYR5C8Evh1stS28pEoJVKKryqK5pD6","5F3nX2m7jSuekPuZHUUNFbqMmNn1qJTaDZJxFjHi5vigazMc","5E2LrK5QSWS1PtqWFupCjM1oCxpbovJAe4nWVkNhrpPkmSbZ","5D88zomg5D9wHfaicek4XM9ShcJGfYnHbWZ7o5DW68WT4QeU","5DchsDp1jMAmasrGbkyD8zftgEMUsTSkaQR7KBdDwuMtbJFK","5Gk3jPRRNBJKziGDwCe4Hre4DtC4EbmCKsXYneFwLDu5S2Ar","5D1nj9K1GmwUM1cbHWgd28iHawhHrMFghQBmqgtsDJrLVx5V","5EeGErCB6WdGVPBseGJ4YaZVE4Ty4cZQYwkjpa4gzJ2EYALd","5ECUSf2Ft99QHatEojGdPQFuYE5z68tSmNNCHy5aKhHKbzRa","5Gpgk7ubGGQ7atfUXbWFJJHJSvYxaUCRepxxBAuuELgJGJtr","5H1cCE6Y5ZCCxVwhxn3dqSK7kiRmw4aufRtSR1iW9QLmQwWx","5EAB8FoGsSPvHynaFQhSGWQKa916RvAH4xQ2x7fyfF6aL55G","5HjWJcRXf5K3qnhG8di9oiJF16hf6gsxHpp9AoA1ZoSzYpNs","5GZFaoHJFAyLvXBBpFhtT2AhuKN9b1hWuh98tkSFAj3G7PPb","5HN5M47E2iMZQ4zrtfnwWcZpXJ6ySBHsN6KGe2j6uHeQ7gnN","5FpS52Wawp6azqwLYkg1QPtaHbjwXkCsLY4E2apYLLCrPnqs","5CwXzLmTM5Y22JPLv8JJ81Fnuqwi8oT6JnEeP6JZnvbS93d1","5FNQYg2HBJCLzpuPWUu1wZzwVXjVcwGxBDSBepv3GmmRniRw","5GeFGa63j86zYSxmaAtF1PEMW2m1G7622hbnM1yqJJZuLCwf","5C5JitsAcbBn1BZ3zeeEzU2knKpZmtwAb2mnSDdiHhSFZ2TS","5H6yY8BWDa6pcw5QY51xTwAqMyxpvcokJgyTnYLTd32efr3k","5DAcPAa9SUi6ruZz3M4NAfA4pQWSFJYMeL5GehfuXkaoinyk","5EEvN7GRzscTj68HYa3vCQo7oyhZAWKovFsE6HPiYqjCnUPx","5E6vtN2d8pfqygQUShyZFeG3Un6Wo2jiCUf4zaWkEqSpvvLP","5EvPk2P3TE7UAXq63n8cBWf1QMiwcLRchsovgCrf5KPBpFkG","5CyVkuNFjtaj1SqEhsgqrfoLRTHdFSMu6YPHsuBfn796fJyk","5EfCoZsiBp4aRgX7b42aQVVnJMJ1ESDAt9HZsr2oEm3G7c7u","5HYHpwFGe5Hcdsr5jKHGJ7isFLrnR8Y2j7q2uYxkdMLy9CVs","5GNizmmNG2EtkCqHSpZjaHFnt5WeZkpfDpiqaVeLLCnAmvDr","5CMLhaoogqHFJopU3oMy7Z8dmxxyzxneMqmwzDDH38kGhx6g","5Hmevkxwu69B32y6veRU6y4RyVvvVbm5uZpZCr5dXuEiwVxX","5HW9bbgrL1ce56GTMQGQQra8aXSsaDVJhAc5hQisdXRw3jJq","5DXjSwDkN2EtzQaKyCcdYRKWCVEC28tNjfGZ4K6S5L6Nxhme","5DABQ2iTr6AzUV2FnEnyPio9TCcHGhhSqm2teVA8RGgXbwp1","5GUMXuuMC8fLsEgmnUapGSNLXkxYAWQnqu5Yryvze7XA6mnd","5D2zBX2yen8SBveHqcgFwpkn8iUu4wGCU5cohfyzuua3TRRe","5FRGdMm4J78LnNMW2YiQkopLq8NASwKuCMfgskntQe4cCqQ9","5DqKfBeUQwvz6pArdeChagfPaBo6vpmE8WwWQSodm1kskjXj","5EL5BymBEnJtPoAoMZyrZc1aaukDkAAbJfGV22sk433Wv7kv","5DJnB1Az749W9dJqERxESqcCf58uhUsBj3m95tmWZnBQEcYg","5FgvpcYgxDXAfmfGYToBeVbjgSYm7GStbq3UsFyqoEomkZ2r","5Dyh3poVKAmJuJQganXWtPY1vEsxA7xs2CNPMc9T1pMqsyEW","5FCFQoHTDqUa4GiS9eA2EkmmFyz7U19Auv5QxRio1Qaw9s6n","5Exm5sZ8mS9pXJnXc4erjUaBEJz3tjTzBgWxyd4vQLJPaCSC","5FHX77czp1qLr5MXBHnacvVERxBpv3aCLJMJY85FwqusGZ9F","5FgzxSFWap81ohkA5wieZJuxFvJgpYTbAQjyAZWdDUdFTUqN","5GsPDbqHQGpakGRPPtYDEeWZy9uvPAksftM7gu8yFtY9ThNi","5CFbQkFVezirKtAeGdj9XiBSK47u5x78574hkYpxrMvcMmRk","5FjLQdpKNRVYKbpN9DHG3wXwtJ2yukfrNwRhx6AWHtP2eqix","5HKgspABJwcdzH9mm3dmzbVby869Uu4DCzR3jWpVNRgEXi1p","5GCdbxqgt6NsDNGapT14jTB1vdA8PqP7sWnpqNhkuncMr93Y","5DtsWR5j3Q2s2Rz6BHRztM2hbJhEiMWaZa6LRvt1rkPLMdt7","5CaXHm3DkfAwEe2bnoJ1ccubsT9te9Rryy8TdRn7Po1vSeTX","5DFFvfqf2ePppeMCpLmp9PD7pmCPZ33rJU4Eab34WECqW7oR","5EP2U6hsswofJ3RUeLVu7DYuCnZXe8ScAvBTPxgwzLSkaBMr","5Hh863FBEkJgrYz8sJKX2pRiGmpboaSG7Trq6AudY1orVWnp","5EPMdSCoV3NWhLb7DVZKvC6tXbW3GivbAHrVnp348PZeRoo9","5FCACgWMJ6xhHgiaSX7n23LrybkaQDzCpHjhP3Uuc1vZfAHx","5DFyFEVphGUCimq28M1S43RpY3Ror2V7t5aSQmufgctBXDhM","5D7H5iJppHjj6tq7ht1PuwmJysJD4UM8XnV5NErbfe21JTnR","5FUFMe9V3iyKsEr7LUXDExfqYaytihVroeze5u8bfMS4oqgf","5EsQZbHUy3b1S3Y2D3iGgc5HP6ELgrhu7ExT66vgxyYd7vL4","5F6pAo7zNHgRxnMigzzqsbVaEBXEbJFaVanwiRACeabG6xka","5CUSXAzQEcoFxzU26o3MLqQeR6UKYDF2nAKanjUAhub93iKo","5HSsHZJAczWXyQxqBcP5CnxvxvSS8bXapNR21DgXpTeKNgPt","5HCGhgBBd8qsCFmdzhRCR5BDUn75b355ESERML1jZQxxPpFi","5GxzQXBEJen1WVRR7cFRwQrWtG65Ce7ttT8VwVLLBs4UHPAT","5DhVEb4MryXXYBKgAayiJH1Mog4VBuqgrYmfkhNK2mJxQ8ge","5EHb5juB1PHsVLxsHdJQgxwd9LGFHppCnahjwg9RiGyjV7cS","5HNZNy6RMpx1bnvEmUXAaBScZNJxSJnZez5kHF1LJ6sEmgo5","5Gq2vT4aVHQrwERiYwGhMaE88AKy9UXCqgZrFmHQjUrwc6BV","5GzZULFc1J23TJNR3P3JviUh2b3P4oKTi1VsUpJuViePhhqU","5EARkAjahYdSjCwRzqTbNRM1eDvJ34rMhKbGQT4cXWFpL6k3","5DM48fTPz8aTEM3bYripAqtXq97mjfzbKfncnF93ri8MgVZU","5D4nLejthUrGevxddf7vZPRZGHTsb1eFnkCspMzFwsEBSEzG","5Gax5jFcVJGc6fdTh6oQmnhLPQ57ggwZAyyYrBm6rJjJR8hU","5Ev5Hzs8tZeWSHqjnLi1P5WVoWgjGhdgnMQSrdgu4XgZbhFj","5FjkB7ScGN6T65sUsypkHU3PvXrGYnmAdyP2Gv6CDmo6FsXX","5GLBvtLRSkxx2CKnNXWGfMsXHPfRH2cYfMK1Mp6QG6pPNrkJ","5H6GgUYJBVX7t7DwtNjwtqJLchdyvrQFxeo8en9GobNbsrfc","5CceyA2t1Sr2weCKpPqFoKpz7SKkeBqHKX7dXnW1Sh9oj8ZM","5Gq2pYx2GC19DoZHeUNvvtbpyK5EVpGtYJcefujmHb2ZvCz4","5FmpeScY5UTQvGPRnZGFAJgNQfco8SUuo6TUtWjufpDBQiDp","5GZ9ziyVXeX8mWP7HcgdbncgimGHrmY9rWeEAy3nDmLnuuuc","5E4zHU2rp7QjGFxcR1oo25JtDXVaPnuyKUfxcuhT3n9xvFAP","5H9gf4xZgh8HW5fhdEvF68yq2pa6Hfh9eX6C7vF97XWUv18U","5HN8BXVtSuMkoepjH38Po8dAQxtp49j6gTj356u1HJad8DH3","5GNXG6QbJStQomX6vMV3LkQKAopWeDReDZrfVSchVF1QCWGw","5GHFxut5ouFmttuHTDYRETdnyKu7c7XUgk4hstXxLUck1WAW","5FLe99AinxvbqDN3PY8eRg9DxgG8wHi3L6BCQCuaZ4qtWb4i","5ENjKU3Dy14LvDnBvCocFbvMhvouYTjTZvfSxDocS64LaSCE","5FGueUt7XxvbuMZe6CUBEEgdvNQ5vngdiVEXUjs3ydwaRWem","5FtC8N1yW6LUXnKMhBkzUqJWKQF4ifaS5khcv5Gvchotm7QF","5ERSkE6YRHEHCfvdcn69Uy255tryK22k9eAb6vtQku9WMTAa","5DkPEu9TRfzSyZRUCU7TQ2uSKMa1Vwz3RuKTGD3g6xNysPfu","5GbtjHPpVDDw4qSG7PAC77dKvabK3FS888iEqpUsxdESXJao","5EjvaqSYh568XMkCgnigcwVeqXyGUX9gKPwwctHbqFrsXE6Y","5EWcfv1FgGQ3U3KjP9YmXpLrbPW8Sx6eNpJ3h7ZR2VwmP5z8","5G3ipjvNeWgWh5WL9vds7ne7i1v9LnMhC1guuLvYLLxxkuJp","5DyYZkz35vZDyvhN7bbTc942Svuy5BMBfPdUX5uzbVYMeaLr","5Et4GHh3Mzaq8LJKNN5QyMzGfzYLocV3K1enM182wFwvoehj","5DwB3qHsJ64mCzqmuLADMhaBJDDZeCLf8xNeYChqhNpdpqum","5GMsC5xLSRwdPA6APV5A2RQHseH7S4ooi6Hxi35rokN2Ky6w","5CeqymeWXxE9EkUpMQMsLBuyEB6F4BWgotbGLUL71j7xJYyx","5Co6ni9jFEuELaYGi35kdPYBNmvdoz9FateCf1gTXWipNyxi","5Euvkigq4CiGwxyWBmYEmm6AxNQzKQabuYEgKiGWuuRQvZmT","5EeM7RC6gXCTHriM3fKJLJHPn2fZPDAysJ3EpSd4n1MAua5e","5G1J8kdtaKa3Zk4NZewVa7kCQugZY8rw86V3YpSn7oYN91Dk","5GCX3vqD37v9rdhqG1em5pSaHFzTGL7SYcdHuvzsSbDkNEYa","5Cag6Sy764QXovKRMTWqUAaEhzZBP7BTtWP9hQsMvY61PxLo","5CqtxHJFP9BEgrEbrMdbs2nLm8gofLEoSf7EhCE49hxhHRzh","5E2dwCUu9UaL31w7JpEx4DGAt3Dyvy9CdVfgeib42ehaSezZ","5FbJunRYfUQezvQ1xGK7GQcuH4CSHdXq6UH1PkMpcvBu97b1","5Co8bje9z43NzEoCbnJXyv5pygBhNEMBGmqUwR45Sc71KpNe","5DyvKARrCgMPyJe6wdSSDgUUkNHD1KUhKQdL6c1GQJ11UKGw","5DwEgj9zDLqmGgiqzFcaxJjwGHkWPFNRDVcNXPZSTXirwM5M","5FZ61hXQyorT9nsd7tycrpPLiU7bPojvSDoCcrHYn8fsJ33C","5GLA1nV556ZN6rbbAfWRDqkoJgV7UJuvQeScLExYHaXdEbeJ","5CdKgo3XnFjrv1Fe1WaKTgMzJWkRsgs9U46sgkLxctPQoQBA","5EcqBrZUSJmsiUePY1St334nf5DvaUojkTmDarq3Rm8kHePD","5HYoC5J3uVoZhiFVDp698dyF69Ty3HQP1mP7xvVrxhA97177","5CXfg8N8hB8k8sLThQQ18tuHZiUtyhpNm99EarV3YaWLuTuk","5DXPdsGhVx9CsSie8jkpNSsb1NDpDKyKSuqNQm75aEoNJ2dU","5FhDnViHbPnEw7LuzaUKiqwaFp9vGwLnPLAGKtNFFnVLvkyS","5Fy5MvREyHrALmcd24Fkwcn7NBWQzo6KrmXoU1xwrjrSQRQ8","5Gui5SrjNq3MDJSDkqa3tEU4Y5wtUeZDHpthE5sGMAbYu6R9","5H9SoPSG58CdZHV6CTPwNPRZw7wKu9asrXSYTTKhXFJSh6Ke","5HGiASXe7wyuNbdkLzZiFmqNdh6cK1LHt9JCPuJUkY3kYWj4","5Hix7hAwxHy7tTVAGS5KiPgzSPenhN8m1T4KhzFTKCNNbsLQ","5E9fMsQixHxjvVCbLeQEy19bxKBhCY3ygkRTFuGF3qVhoiMw","5HSwzWCg8j8NyP6znDqiWGtUHepg2pPUwQacoJezf4fTUikM","5HgGAsu1xqirFmiQjak1vC3FMGVQVwFefA9qF29eu8cbjLUi","5FPRdCaHBGuPxCceDF1GmYgm9HsY2inNDbjM8h9pSfoJkWTq","5FxYTEw5AsgY5eKfABdKn3V8sRRYYdWyZkfzENooBTmf5yBM","5GLFbkjFmPTvLChuzqzoetqbPf5PgSSmSUKWoX2PK1HHc8mp","5DSNKGgQtWmMw2c9T7GLoac7iCgoiqX1zqZKuS3tn9BNZvHH","5Gn26WPVHviTyeyuHGqQyR13u5Q2nYjfi6PUahzqdCqhGzkv","5HTyShgTjmpkCmASZWi6rPJD8zyAPzfuTuxjuQKybCRJS5eS","5FHdJ92MZ3fb3uHtXvnG49AN3GwjJgeGQi3iQuK33Tw4kKxH","5DoHFSiG2ixKH9UwrJdjVxexLCgAbcqfbdoaV945n2o6rRev","5ERxEWzsT7uaTGeUuppr8s9o5nKPMku86Zzg1gRrH7HGoCNH","5EsbbeKKDd8SqJ5k4n16bsMi9hUW6t25bxLAd1cq6PfiCph3","5DqKrSR7zJmTtdE5RtVKr3cWT2zd159wzSWE8yah58xCKYDF","5FQq4n9EVijLNFciVZxyKSgJ58HgL4bYHoFedsnqBGvqac6j","5Cz97acJEsGb6pv5PnLCMZFXBLjLcK6fMU4U3kCgukEChw49","5GeiqLD3gAy4hZdaE91bTqZ6oz6WnegYh7i8P8XFJ6rjkhkq","5D8CdscCRJCJsrE61PqcHKd2y4r5HTmMMAa9nVqGRK9ryruo","5HowJVUgnYeCX67R2PeKa65S7u3eTKhbzq8Wb1DDFMX8qmhX","5G3Uvu6QjCZXSJFh7KPm8sdHY9TAE9iNacyV676QFMydVWV9","5Evjy4dm7oa6Y3FDkmu1VLp9xjKUB1WjKt2SEhbd7bKn3voD","5GsvaFCKySif43ECRompY8nHQDCj7ZYS6zfnU3ZhE4thy45Y","5HWFbQMTESDYuNB6fS9h8wXuM7MHfTydotnR3mGX7E97s1aJ","5Ci7j9fQ4cQqPRQfMU594s1gpVLgfWpMirtDST1nonxMDnDq","5HYbgJC7KELoR67L1h39unWvfM3B96q7gqVQBDPxmWvQcKUx","5DF3FW45Lr6rXAvXbxKkfJLGM6jSzMPf1TuakixAsQjebH8S","5CRoKx9cZatjKdvX2uVe8t9tqMjMKuqxmYvnf2QhpEQvq3xL","5G9CBwxhi7wzmWuTxzjT14EAkR3HC9fxRLCnK7BY1GojMajQ","5FjuyrUzrLRSFjbvKtJS8U1cSWiqdvEeghrMRBgkyGry759w","5GzfhgzKXU18FkwehbL4iN8MzNuovUtH6rjdSoteTi7uLxof","5GH2iZQPbUwMn22onZQoWiuD9xeJahyecyaK6QVvu8JLHsTG","5HW5JoZqc7hSEueH41w4R7gb2Q2v6CVx6fuegdgS6tu7W7yj","5ENkpD3SPWjQFzgqRxqeJ5b17ysx2Q5KesGmiqz3Bpkr8TJ9","5CtNXyf5ReWKh48troifdYVBRyBEhNZsG1b6qhJN3N8yxErg","5HdGXZMw5YHDPpkUTm1kUno6Z6tdPugNbBWo2AoZNvzE5sh3","5GESg9TXLFjyKJ5b74fVzmy6TyBuUpPPPeMT69irJQSdjXmv","5D4nbzypcwmxa6jG78XeDSwRNwuSfgxJ1H4Sfvr2LZtazLub","5F6xt3wHbL3ycbg3q1FvgqhEyMpM7r1rbeXC6svbZzXfHRk8","5FKo1ifTmq1wmTt9su3a5J43hE9RpKUSNCBvgfj1wMXFnySC","5DM421u15VqhoNjywhECdLXSWZgkGtJjBhHvd32c4HHHSv6w","5EL2xMHup9zDT3AUrK11LBNC8ibzoDwzZbKjZiuAwvWPNxQz","5Gjze1DqYpSdVnbCGW1TFzTPFw1UZdcLyPpEw7TyuSmddC5x","5ETprhyFpj3WYhkdL3j2pBD1raBnRrkdycunogCGmfGwXwbP","5GdeR6tSK9mgBnytj7WLhgpMuZLGNTpUNRKpoBGMoT7amqkW","5EFbhzjNqnexazA46cjiCZX5LorLdG82tbcqnswvCmVqwG75","5FFLBFVhdZZiQJ39T2e1Mo5c7ErQq8716NtSKGXL34QUuv4f","5HdVMa71ASLmfj57xrp2XJU7jWkpoVvjjWrBvhg9rufPLJrF","5Fv9q5weu5uTAtVZLBzLuL8unShZiv7fagfQ2E3LkqgexnMA","5HJwvV9BRzX8Bin5hjzWiAwACpjnJvKM5pz3Tqt7pSB4qtBp","5DZoNr3EoTHepUnQz6G5MydxoQTivvWhCy1UvffbXSDTbMEq","5CPRGacLuFTm6UGBgDBkWNeZLkeSz3vpcieN1kD3q98ePbVC","5D86F4oDQ3nRNUDSAQRRFcHcxKPdYav2YVuEgDEpXPbqqUSy","5Hb3cmfKYi19XdqjPgt3D9nh6naozz1X4xvWLVzxWZa4nwGy","5GepqDvBaSpZqR4L7dVEJL4gCTQhRPhS1z8poTo9apEMLN31","5DhuCDnx1Ew8MjgYQpxaatJPpnHvvQGGUh2CpxpjTofcAvPZ","5F2SP96GjXvzFnZooxGpvQbb1xwGHZpznv9LiWrNygbqpc1q","5GT89hmM6V2faqpfYGQmvMXLjoNvcQeUzPfw5SwsTubNkmbq","5G9qB8BKbAQhvVKQf3A8msch9xPeoMJaBkr4TGN9nnVZYd21","5CTtKHpCffLBpQpxioGBzjovWrbZmDJPLAdsuvs1AhSQwmfN","5H3kEtqBs8KCsrDe5xExMrnD5x7jXU3GZeExidGrVD1oroM6","5HU1VUncvUw6xoFCCTJJE33m55aRxTPUyn727BABWRHjkFew","5HpmW7tZRh713KR8x2y78FwkYMs3FUuSj6soRJCuqWAdMdUb","5Ct5M2zbRVjixLRqA1pK79Tmxksw4ZFJp6Pjjt8eq778x5VT","5CLw1mLFuhPMX6JB3kjumKLDmFZR4QG69xKxGrg5HoBVxhrP","5GZ3c2pqXBjQcW3s6qwSBxRMULWPMHPB7qe19hxcSScTDQCB","5E2P1Q8cJWzzEGFPkz9i6YH26SjBiFJivT1EX8XHgM4P2GiK","5GjSSKe3FWMv3DsEu587zn4r2YcJA9oP4T4n8pLX6PJefTe7","5DJcGC2c5yk8h8ViHoZDyGrjo931zZoB6TM5sGW5Yp4DDUFs","5D7W3YSMLdrUHq5Hx5a4woFpk1UuVmk1u7QawKn1LijkzQka","5HQu6DxHDQuR4QmNpzqNDvmhTAtmUb8RjeZ3ZQso7xkPTx25","5ChkNnY2HCJRMdHE8ZAu3kmaRThZk97K28XYXkJscyewbTiq","5FjDahdHeFNZQaAPfHVfS4JKQ9QxjnzihX37HRDAbxNisXWa","5CPt6Sr9JX8Z6TASZkKytEsBMcZ4HJd5JNZ1NntwtEEFuN7j","5Cyytj6rqQkaoWDgaH8vAgTuDirjDyAAMfqfHXZvpGoXb1bH","5C7xkW84zET3X9WU4GTDkbdWmfZoP2wbC1KeojcJYC8X3Bjo","5EkUvXzSsVxradKeZiyNu5E3PtqGXMkt1iNz31MZDmCFMiNm","5HNFZ3JNV3azZXNqo3KMLaxGuboa7gmcXp9iivWFBb79LcbZ","5Dnb7Laf1QfJ812Nf5ai9EnPhzTH5ZZAWSMoaUznHABapcQJ","5GWxL6Zyy3kPnSVBL9SJG29yGotLHzykpwXX8tYDjFbzzqbf","5DoBSwurQt7gRLFmQseMEf3o22uxnfPcLuUGCv7MH2pp8YFv","5DXkqEN68yXpVG7mac6Prd2w1vyGvZLooUpMYWSphXi6D7L6","5F4VR1AaSJzJn1VoyoTpQaeh2BiZuD5SrJY6kRwPq1qATwiP","5GQcvWyGEhdkwctjGuVM3aVj8Jb7HQtf5MzKXRY29xRTqJkX","5Ckio7wDXX68krUHtkh7qpyKcz2tEWZLojkVzzs7zwZYJN5Y","5G8mGAAH2EHDUQtzGE7aWK6Rc6SbRghnuYPzgZ5qoaBNqmNZ","5DtAqpg9GBZWRrWEChrVv7gRtHKXiqiV9SM4paSZoUycnFDB","5E6vsuHQLAPa6AuU7GCagqE7CQ6GmbFaCbifM7eMFYU74dgJ","5HQjWdrAN5hgEZPtxrzvFEr3oNQBqt32Fw8aPyFfVwFguSvB","5Gme9TN4a8w6mk3qcHc7nDN3QzCs3infXPF5UgEZFa7DiPrP","5CiVb7DzLqE4sx3Bhxipp2281M71TbvCZ7wPRqWmuqMz4qXh","5CrMhN1RvmfZPPYeKH5AkqXB5XDMxSgJTzusJ6vTFaYJaLLF","5EvaLBJRqxFkLffndpnSJzDUUwvX6P3yZPdozTTeHgrzwnYp","5GuJEJdwZ1NQBFBzQPU78SJzFsDpc6jSQ5RDsNG49mwWtPmm","5Fbn7tEpoq4K4KB8RPGbxRwyyRkpaschNfW5djDccYccqDos","5EcbgKyTs6vS77gsZzER1pGS5DTAdTamP3VNjDLz2RnCZwbH","5HQhVQLenJxtKtrhbBmnU9AsxzMsWgL6x3JfznpqqbAgbMHV","5CALd5ZgjQy9a65DTiMWp9EfasA26zipuMF9HRDKm7c8J3Uq","5Cex25yKF7VyidQeKYGyuQ11BciXFKzaNn2bZuGUxG6FTd7P","5HNccN4P1zwnEaeSP4hXeLpQgwKhYpPw9jVzws8R27LonU2k","5CJB8h218mRrAmoBj7zwEDbhSzRCZQZud4G43XKjZGFtY6RP","5HHAk2VVeA3VfcrKpV1VuvyfB1Qpr21PxrGQMDQ8baYXwPJk","5GHSdu6QZDekBycN1kh9AQ2B4WoX2d3r35ga68XzyiRgjnzq","5DhzEg4XTk9rwhYpZtWAEr3T7gmZRHLDdZcmDgjB7NLYP64x","5CA434kHpcPC6iYXhbdRuq5kMB42EkqRioP42XhjrMZueFVo","5Gza5dCujGv37KCCodf4xkgYAW1R5KRtviKbRxZhZjzCtsve","5En3uyQaPWyoNbpP7UPWYZJEGZVUhGR4PbYFchEkzTTS5We2","5Grqzjd3MznbqQZzE1m6mETPNVR6VgzpE3Gn1dw3HLU41QPQ","5Ca6TyWCfHEm5oGctejrDhEbYABuEfUQ485J35uJKRnY3Fzh","5EyhtggzmZX35RapfuHbNzp5zV1XvKqhybJzwk4sGA5HA8Wx","5FkEddkn9eDCStgzk2kPNXZkB7PqabgX3V7JDjgkjVfPQRtk","5Ejk9UhGGYXXehmSAw2EwVraT6Vy1tQT1V2fGbfrWCDfACoZ","5H5sxHFiuN1VVWR8swzxrR7yD4ZsgGUjkSRyonw3WaNEuLUq","5Chh5ZAgmcJjmTJoF6JSNVENaqg3eogP9X2bANZ4jY5kFgjN","5G1j41MGEbNVUDS6ZkJZvx13xB2HZP9kuhdZaQ8rmnGXb5pC","5GHPoiwRMGu2dS5s5ESdpjQuGC1FA8kGpHw727cpR5aEH6MD","5D4xChsWevVHvG82Vr6KJbh1DbLt7P9J35UPSn24cTQP9oK6","5G8tpNXQcyYoNFnyv3wvz4Xre4fA1Vr4VTiQazrvCaSE2ZwH","5FRW36G6cpBoBQjUU8rh9hQNTJQBk3W4sFFDNkqXKdrdwVk9","5CDK8t1CbnScAKrj9S6KgKLnjhaH1C1XE3LyVcL7tLPev8sR","5DDWms6xzWuQCD1cbEZhDjY3T2BFSUZMWTJiET1Yk76Ke6oB","5F2GmxrL8kEU9shy4hxGkZci6DkD75TJdFbcW7tr8Y7WFKYe","5EZeJJQFZgnepRKmBah5tig4LPc59Gkvc7AaAMuH9LVXQx2G","5H9Szzz9wWsi2rsemQwL5b14DaRV3drePwizLRaU7uXSuEsG","5HpS64F5nrs94Z2yxQ78BgWQZcCHjFqsiMZZUTNKJ4GFSqZd","5Cng2dDnSUUioFnP9z7mjsBN3hQhr86Zp5HLYm1zstPyDMpR","5FjBmVZnhkvKGM33uWfEQSDDXuSq3rzLb2W16zdjqgrRDwR8","5FpRn2cfb9ZGhs2DTDV5C1ngCXVocFyiMW359ukAEMTR7iBg","5DteAN6xmixfYHKRirgpyDEn2R7VQdKDiorfqWH7y6YKzTv9","5HY6oNUsvSwvSLJ4wJBEp2BDWEhVrchHhJN1swb7BnEGrkxn","5CABNTymTxm5Z7Adwkjw3SGEs5QzwUtbH84rRX8Rf1zusfpj","5EhX6JjuxR6Gw8S8AJzWJKBydX8M6KXkH1xDZfbJPEoHP9w3","5He7Sd8WfTpocZPZ6xwBVr9Edi2Mh7iz7nzg2QTyUzfBjnS5","5Dnpmm37eYHuPTNTK9TavojgD5b7V7UuKGB2jWUmcZ4jUvCx","5GWkCTLLP1FL1rL6TVvDveCfWeRyry8SJtZgDmAWaY3qgKUB","5ExZBD1fcmjpCSbuCLn67fxbHHGqUBTR7XzEmQa5Ecm1qMGs","5G1MB1qRRCLZcDSVopRBM9p2raxWit9E75su7GhRZ4Y44Ysc","5FLJtBiuiEfps54ni5gDxw52hoWfYkxuJnDjBu64WAxNemzr","5DtqKtChNZb5RLkAghQfbi9psQ1Y5kDjFqtqHbwePYRWuUhW","5Ejde6PCntCVyo8VMG6BWoSFqX7og97nnawTFpGLnRJfwi8X","5CXK6cJ7dFkf3qRRaSuuqZfVdRTBi7Ptzhw8k2ECGrZZypKj","5FhS7UGn52kvnzGPBwACcpcsM4tmxkP5z2UV3eXeP81ewPpZ","5HQjhgcTFyQAfy1zFJrLJbYDrUq6sUgW2oSe9iy9rdFAjN4U","5HCBexnnDS6KRm8aj2E9SHn9RCZVE2aVc1JnxZkEFyfvQoRh","5DyYUMY8yP5J6gnaggzcp9gexoVnZmyrDAAGZ27sF1DogKmU","5DJoPJ4rwtXzc7dgDdUQVeZ8SrZUrdjFXUsXvEa3maSkL36n","5D7ud13m6KZC93FL5Fu6WZKxZjXEAowjMBDZrbzPTqLFpJn4","5FbsVxR4gpiTUkN7ok8QUYpXibvkaSgmCksmWPhBj15iFJW2","5Ctwx3wP7K5nCXTQYUQzjG2UDwUXZb4wZ76LKeBUctRKF96P","5DyYuALqz7FdAXmiP2ubAmDLAjZWRvKSu2aoCdiwkMmE4RNS","5F1YqwtJq7UzLNR2oGsjtHBgWZMK1RkJiiEGzsuXm4JAoJhW","5CzM6qoYP7rgjnJMVKioepbyE3RFRteNjXBXrv1683hjTUG5","5EeaD9wpbuzWrw4WZzAmFPiLNvcgZCMJcqjvE1mxeNG13cu7","5Gpj3A2ZVq3VbtMAadaPFXSA4zmyUPCX9nMsqExwynDopqYM","5ECJ28hzNNKf6xJcHhZ5BEuv7Lwz9vjL9bZ4JLtk2fgVYXeG","5CJYrL83sxm864NU1NuJ4vTZUY3d7jxpKUu28a6tZvAEsxWk","5FqHYMhqpNtw5AbMPJaVJwV9cQ8ooN5SkfXj9daNKxm8vKdC","5F41MfzBwLd7fkgkMAQZZE4CUMVAZx2AiHZrE6GQCQxwoUFy","5CZbMGhj8N6AFRQQRYKdV1bFgEXo2ff1ehTtkcNDHyXoob7f","5EF8AnhJ8dcK3sr39nFYStQHMrBuyMy8X31n6F8fy2qtZQHU","5DtsrNzKi73vXcGPcH3oyRXq388ngSEZ3i685RnGP62R9gzE","5CdP7RtLgXgeJr1AjnL8XW6oLmWsHWpXTYcmb5qtqt7fAftL","5Dt2P9LovSgarhPCL5p59MpZtP1Xx4YwX4QKRKcAtAEKJkoq","5D7Fu7uvDsMa8Vb8QdqToeYzb3ZYmDjSVXAn7ceK38zSjbRF","5CCcxgHmErgBLHoJa7vbjnSRrVrJmb3iTTnjDMrdDTPrmxi6","5GeEWPeo5BASRJr8xiTfPTFvijzgKavDAJPfGe6BhsdokvUL","5FhDfckoJ5HeHuuQVbCvskSJVYPoKpJ7Z2AHBbDHL7QCMFYR","5CPbQRfMX2DmTHmaEZJYL77AXQMhLohPqDgbYpDBS3dFWWxa","5EU8d6BvuJm3ubwSaGBhJmCSkXd76uLyGmMQnpRjsm83U7n9","5DiDNCGnLJS3A7Q5NubHhkgidbdLCsWGwxwQDbJbnZXPogoG","5FBip78DekuwnPKEULoruNRbv8of5GZJU4bxmB7wVsseAiZ3","5F221fWZ35oL6qUjDbx6ytogJYVvBrT4bF9uagHvade5HeUo","5Cyb33fJYPNcaRbV9FMXKxofcBBtEbMcaYAGmn2T5WyWZrrZ","5HgueHwa9vCoUJErkYMdnchjeqRiQ3tX5NMTaRFQQNqfcjGe","5CLy3SdGjzqaA1gpk27uC5SxhXmZEJRT65UTizqCeMa49xQM","5FHQZSKLAzLUKCeDQXhwiXiVfPtPBB5VX3jkRVr9Zi6WnLL8","5GpEVQdBypn4XAh789VDc4breHTAX1M3S5mpjuoNA5h3r7py","5C5Bt9o8hukuPsNDTcsLgEgyjAu1rMf8LWUytdWidQBfhaug","5H8WHNZsZqouacCDeAtHyTh83cyMu3jmz7oGtrWxzGAcReme","5C81dYZoWosJPDz4mH1jcDhqWWZR1s9AckcU84fBK8S1LrYb","5F9oCRixFGoyhA1bhghA4xotyyFkue9pQ9X7vA3YADZ7oF9M","5DvZoWu9C6e9XrzMQFDxenx5Z6t6tE7MGefXbqRfxpwFaW1c","5CFtFX4yu8sCsArUdD39YMzhdUHzvta8Pf7uKGwPaMSND3Qq","5Ggav4pnwkd5EaoEA7oqTMvxnyNy7N3Psj4xxbDb6ojkrZCa","5FEpFXxW6XWmig72JCWaYZwZry6kmhAH1eQUivbAttUEXmjD","5Ecgooe3YuJnUowMvwnbYkr7YH5PdkEgSec6RNctjFuFmDgN","5DpyyhqFvK9bJKWhGGxst8FKTJjwmu5Hoar5Tu6h6VjvaGkq","5EvmUi1svaBbkjcrt6ruo2qdNhWPLjBqxjDrLq5aQnWGH5My","5Hm8Dp6E1RCW9im3LHF8gVwyXJUjHXqjKohGTGo1XFWb7x3v","5HUdvSMafHRj8v944GdZJosVprAXhJ1Ecd2pJtAwbDUHKmjU","5GNLakQwpNDki8J9W6t1XDdEgqdoU7kBVCrDLEeyw1C6T2he","5HeKiKxsmEk4W78YLMbKCyhxPnM42wm5RfVqGquevxmryMPt","5CLbS3iYBSHuPQqXeaovMK3NDcgy4QdnUGASQRNEReM2NxQL","5DRgvdRnkx5NmiKTY3d3d2dFsbSbkR4cMwKxeBhtnhzhuZLY","5DRRanrftXA8q1unRyYv3qQw7WXXfG9hdrkzcmyRHnAtDmoJ","5ELAWSxivNCHPtPPPvt3wXy3LXxpaFufiLa6CQEmhxufGuQb","5CM9Gpi4AWC9e1Qe8fAqzGgLT2aWSJ6QSrknfumtgKPyCgKh","5CqtnkF5nYUmDVESV2CmBPYpYFyFBiCN4uD5NEUZuxDLy2e2","5CM9Gpi4AWC9e1Qe8fAqzGgLT2aWSJ6QSrknfumtgKPyCgKh","5Ft2jF1xz1yHUnh4v3EAtZAjB3qMCuCkwVmdzpRfHoXLCxhU"]');
+
+},{}]},["4rkIz","8lqZg"], "8lqZg", "parcelRequire374a")
 
 //# sourceMappingURL=index.975ef6c8.js.map

@@ -112,10 +112,35 @@
             text-align: center;
         }
 
+        #votesTable td.balance-column,
+        #votesTable td.stake-column {
+            font-family: monospace;
+            text-align: right;
+            font-size: 80%
+        }
+
         #votesTable th.progress-column,
-        #votesTable td.progress-column {
+        #votesTable td.progress-column,
+        #votesTable th.ds-column,
+        #votesTable td.ds-column,
+        #votesTable th.favorites-column,
+        #votesTable td.favorites-column {
             width: 30px !important;
             text-align: center;
+        }
+
+        #votesTable td.ds-column,
+        #votesTable td.favorites-column {
+            color: #666;
+        }
+
+        #votesTable td.ds-column.active,
+        #votesTable td.favorites-column.active {
+            color: #00e676;
+        }
+
+        .filtered {
+            color: #00e676; /* or any color that stands out */
         }
 
         @media (max-width: 768px) {
@@ -179,8 +204,12 @@
             padding:0;
         }
 
-        .chain span {
+        .chain span .copy-icon,
+        .chain span .qr-code {
             margin-left: 10px;
+        }
+
+        .copy-icon, .qr-code, .small-icon {
             cursor: pointer;
             font-size: 80%;
         }
@@ -257,7 +286,7 @@
                 <div class="address">
                     <b>EWX</b>
                     <span class="material-symbols-outlined copy-icon" data-address="5D4WvryHkSmFZMrNxLbGT8jtfNiQ5fMFugpvWekafrD7Ums5">content_copy</span>
-                    <span class="material-symbols-outlined qr_code" data-qr="/src/donations_substrate.png">qr_code</span>
+                    <span class="material-symbols-outlined qr-code" data-qr="/src/donations_substrate.png">qr_code</span>
                 </div>
                 <p>5D4WvryHkSmFZMrNxLbGT8jtfNiQ5fMFugpvWekafrD7Ums5</p>
             </div>
@@ -265,7 +294,7 @@
                 <div class="address">
                     <b>EWC</b>
                     <span class="material-symbols-outlined copy-icon" data-address="0xF34193DD4F7B51CaFb0A037131cDC9b4197F7B4e">content_copy</span>
-                    <span class="material-symbols-outlined qr_code" data-qr="/src/donations_evm.png">qr_code</span>
+                    <span class="material-symbols-outlined qr-code" data-qr="/src/donations_evm.png">qr_code</span>
                 </div>
                 <p>0xF34193DD4F7B51CaFb0A037131cDC9b4197F7B4e</p>
             </div>
@@ -276,7 +305,7 @@
     <p id="totalAccounts">Total Accounts: 0</p>
 
     <label>
-        <input type="checkbox" id="toggleAccountColumn"> Show Account Column
+        <input type="checkbox" id="toggleAccountColumn"> Show Account information
     </label>
 
     <div class="table-responsive">
@@ -288,6 +317,10 @@
                 <th class="name-column">Name</th>
                 <th class="location-column">Location</th>
                 <th class="account-column" style="display: none;">Account</th>
+                <th class="stake-column" style="display: none;">Stake</th>
+                <th class="balance-column" style="display: none;">Balance</th>
+                <th class="ds-column" style="display: none;"><span class="material-symbols-outlined small-icon">photo_camera</span></th>
+                <th class="favorites-column"><span class="material-symbols-outlined small-icon" id="toggleFavorites">star_border</span></th>
             </tr>
             </thead>
             <tbody id="tableBody">
