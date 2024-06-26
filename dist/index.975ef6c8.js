@@ -743,9 +743,9 @@ async function getActiveRewardPeriod(api) {
 async function getNumberOfSubmissions(api, activeRewardPeriodIndex, account = null) {
     let submissions;
     if (account) // Als account wordt meegegeven, gebruik deze in de query
-    submissions = await api.query.workerNodePallet.numberOfSubmissions("smartflow.y24q2", activeRewardPeriodIndex, account);
+    submissions = await api.query.workerNodePallet.numberOfSubmissions("smartflow.y24q3", activeRewardPeriodIndex, account);
     else // Als geen account wordt meegegeven, gebruik de .entries() methode
-    submissions = await api.query.workerNodePallet.numberOfSubmissions.entries("smartflow.y24q2", activeRewardPeriodIndex);
+    submissions = await api.query.workerNodePallet.numberOfSubmissions.entries("smartflow.y24q3", activeRewardPeriodIndex);
     //console.log(JSON.stringify(submissions, null, 4));
     return submissions;
 }
@@ -800,7 +800,7 @@ function getAccountBalance(address) {
 async function fetchAllStakes(api) {
     const stakes = [];
     try {
-        const result = await api.query.workerNodePallet.solutionGroupStakeRecords.entries("smartflow.y24q2");
+        const result = await api.query.workerNodePallet.solutionGroupStakeRecords.entries("smartflow.y24q3");
         result.forEach(([key, rawValue])=>{
             const accountId = key.args[1].toString(); // Extracting accountId from key
             // Process each group's stake value from the rawValue
