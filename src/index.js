@@ -173,10 +173,10 @@ async function getNumberOfSubmissions(api, activeRewardPeriodIndex, account = nu
 
     if (account) {
         // Als account wordt meegegeven, gebruik deze in de query
-        submissions = await api.query.workerNodePallet.numberOfSubmissions('smartflow.y24q3', activeRewardPeriodIndex, account);
+        submissions = await api.query.workerNodePallet.numberOfSubmissions('carbonaware.nomination', activeRewardPeriodIndex, account);
     } else {
         // Als geen account wordt meegegeven, gebruik de .entries() methode
-        submissions = await api.query.workerNodePallet.numberOfSubmissions.entries('smartflow.y24q3', activeRewardPeriodIndex);
+        submissions = await api.query.workerNodePallet.numberOfSubmissions.entries('carbonaware.nomination', activeRewardPeriodIndex);
     }
 
     //console.log(JSON.stringify(submissions, null, 4));
@@ -228,7 +228,7 @@ async function fetchAllStakes(api) {
     const stakes = [];
 
     try {
-        const result = await api.query.workerNodePallet.solutionGroupStakeRecords.entries('smartflow.y24q3');
+        const result = await api.query.workerNodePallet.solutionGroupStakeRecords.entries('carbonaware.nomination');
 
         result.forEach(([key, rawValue]) => {
             const accountId = key.args[1].toString(); // Extracting accountId from key
